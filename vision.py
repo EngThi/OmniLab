@@ -4,11 +4,13 @@ import numpy as np
 import math
 import time
 
+import mediapipe.solutions.drawing_utils as drawing_utils
+import mediapipe.solutions.drawing_styles as drawing_styles
+
 # Imports da nova API do MediaPipe
 from mediapipe.tasks import python
 from mediapipe.tasks.python import vision
 
-# Crie uma função para desenhar os landmarks, já que o `mp.solutions.drawing_utils` está obsoleto
 def draw_landmarks_on_image(rgb_image, detection_result):
     annotated_image = np.copy(rgb_image)
     h, w, _ = annotated_image.shape
