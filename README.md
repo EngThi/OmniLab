@@ -1,58 +1,33 @@
-# 🌐 OmniLab
 
-> Interface multimodal estilo Laboratório Stark — autossuficiente, modular e escalável.
+# OmniLab
 
-**Status:** Desenvolvimento ativo · [Hackatime/Flavortown](https://flavortown.hackclub.com)
+Ambiente de teste e desenvolvimento para IAs modulares, agentes autônomos e automação fluída.
 
----
+> "A interface invisível entre pensamento e execução"
 
-## O que é?
+## Arquitetura
+O OmniLab foca em rodar localmente no momento (Python + MediaPipe + FastAPI), renderizando um HUD (Heads-Up Display) no próprio navegador em tempo real usando WebSockets. A "nuvem" (n8n, Supabase, LLMs pesados) só é acessada quando necessário para tarefas cognitivas.
 
-OmniLab é uma plataforma de interação multimodal que combina:
+## Como rodar
 
-- 👁️ **Visão Computacional** — gestos de mão detectados pela câmera
-- 🗣️ **Voz** — comandos de linguagem natural
-- 🧠 **IA Orquestradora** — JARVIS-like, processa intenção e despacha ações
-- 🖥️ **HUD 3D no Browser** — interface holográfica renderizada em Three.js
+1. Instalar as dependências:
+   ```bash
+   pip install -r requirements.txt
+   ```
 
-Processamento pesado roda na nuvem. O módulo local só é necessário para acessar a câmera.
+2. Baixar o modelo de visão localmente:
+   ```bash
+   python scripts/download_model.py
+   ```
 
----
+3. Iniciar o servidor web com o HUD (abre a porta 8000):
+   ```bash
+   uvicorn server:app --reload
+   ```
+   > Acesse http://localhost:8000 para ver a tela do seu HUD (ficará com status "Connected" verde se funcionar).
 
-## Setup Local
-
-> Só necessário quando for usar a câmera. Nada de dependência suja no seu PC.
-
-```bash
-# 1. Clone o repo
-git clone https://github.com/EngThi/OmniLab.git
-cd OmniLab
-
-# 2. Crie o ambiente virtual (fica só aqui, não vai pro Git)
-python -m venv .venv
-source .venv/bin/activate  # Linux/Mac
-
-# 3. Instale as dependências
-pip install -r requirements.txt
-
-# 4. Baixe o modelo MediaPipe (não vai pro Git)
-python scripts/download_model.py
-
-# 5. Rode o módulo de visão
-python vision.py
-```
-
----
-
-## Estrutura
-
-```
-OmniLab/
-├── vision.py              # Módulo de câmera: detecta gestos, envia JSON
-├── requirements.txt       # Dependências Python (só módulo local)
-├── scripts/
-│   └── download_model.py  # Baixa o hand_landmarker.task (~7.8MB)
-└── README.md
-```
-
-> ⚠️ O modelo `hand_landmarker.task` e o `.venv/` **não estão no repo** — são gerados localmente via scripts acima.
+4. Em outro terminal (na mesma pasta), iniciar a visão computacional:
+   ```bash
+   python vision.py
+   ```
+   > Seu navegador começará a rastrear seu dedo indicador (uma bolinha verde que muda quando você faz "pinça"). O OmniLab tá vivo.
