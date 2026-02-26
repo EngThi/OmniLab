@@ -16,61 +16,110 @@ async def get():
     <html>
         <head>
             <title>OmniLab HUD</title>
+            <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
             <style>
-                body { margin: 0; overflow: hidden; background: #000; color: #0f0; font-family: monospace; }
-                #status { position: absolute; top: 10px; left: 10px; z-index: 100; }
-                #cursor { 
-                    position: absolute; width: 20px; height: 20px; 
-                    border: 2px solid #0f0; border-radius: 50%; 
-                    transform: translate(-50%, -50%); pointer-events: none;
-                    transition: all 0.1s ease-out;
+                body { margin: 0; overflow: hidden;background: #000; font-family: 'Courier New', monospace; }
+                #ui-layer {
+                position: absolute; top: 0; left 0; width: 100%; height: 100%;
+                pointer-events: none; color: #00f2ff; padding: 20px;
+                text-shadow: 0 0 10px #00f2ff;
                 }
-                .active { background: rgba(0, 255, 0, 0.3); border-color: #fff !important; }
+                .scanline {
+                width: 100%; height: 2px; background: rgba(0, 242, 245, 0.1);
+                position: absolute; animation: scan 4s linear infinite;
+                }
+                @keyframes scan { from {top: 0;} to {top: 100%;} }
             </style>
         </head>
         <body>
-            <div id="status">OmniLab HUD: Disconnected</div>
-            <div id="cursor"></div>
-            
+            <div id="ui-layer">
+                <div class="scanline"></div>
+                <h2> OMNILAB OS // CORE_V1</h2>
+                <div id="status">INITIATING...</div>
+                <div id="debug"></div>
+            </div>
+
             <script>
-                const status = document.getElementById('status');
-                const cursor = document.getElementById('cursor');
+                // --- 1. SETUP THREE.JS ---
+                const scene = new THREE.Scene();
+                const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+                const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true});
+                renderer.setSize(window.innerWidth, window.innerHeight);
+
+                document.body.appendChild(renderer.domElement);
+
+                // --- 2. ELEMENTOS HOLOGRÁFICOS ---
+                // Cursor 3D (Anéis concêntricos)
+                const cursorGroup = new THREE.Group();
+                const ringMat = new THREE.MeshBasicMaterial({ color: 0x00f2ff, transparent: true, opacity: 0.8, side: THREE.DoubleSide });
+                const innerRing = new THREE.Mesh(new THREE.RingGeometry(0.8, 1, 32), ringMat);
+                const outerRing = new THREE.Mesh(new THREE.RingGeometry(1.2, 1.3, 4, 1), ringMat); // Formato diamante
+                cursorGroup.add(innerRing, outerRing);
+                scene.add(cursorGroup);
+
+                // Grade de Fundo (Grid)
+                
+                const grif = new THREE.GridHelper(100, 40, 0x00f2ff, 0x002222);
+                grid.rotation.x = Math.PI / 2;
+                grid.position.z = -20;
+                scene.add(grid);
+
+
+                camera.position.z = 15;
+                // --- 3. CONEXÃO WEBSOCKET ---
+                const statusEl = document.getElementById('debug');
                 const ws = new WebSocket(`ws://${window.location.host}/ws/hud`);
-
-                ws.onopen = () => {
-                    status.innerText = "OmniLab HUD: Connected";
-                    status.style.color = "#0f0";
-                };
-
                 ws.onmessage = (event) => {
                     const data = JSON.parse(event.data);
-                    
                     if (data.type === 'gesture') {
-                        // Mapeia coordenadas normalizadas (0-1) para tela
-                        const x = data.x * window.innerWidth;
-                        const y = data.y * window.innerHeight;
-                        
-                        cursor.style.left = x + 'px';
-                        cursor.style.top = y + 'px';
-                        
+                        // Mapear 0-1 para coordenadas no Three.js
+                        // X vai de -15 a 15, Y vai de -10 a 10
+                        const targetX = (data.x - 0.5) * 30;
+                        const targetY = (0.5 -data.y) * 20;
+
+                        // Interpolação suave (Lerp) para não tremer
+                            cursorGroup.position.x += (targetX - cursorGroup.position.x) * 0.3;
+
+                            cursorGroup.position.y += (targetY - cursorGroup.position.y) * 0.3;
                         if (data.pinch) {
-                            cursor.classList.add('active');
-                            status.innerText = `PINCH ACTIVE | X: ${Math.round(x)} Y: ${Math.round(y)}`;
-                        } else {
-                            cursor.classList.remove('active');
-                            status.innerText = `Tracking | X: ${Math.round(x)} Y: ${Math.round(y)}`;
-                        }
+                        ringmat.color.setHex(0x00ff00);
+                        // Verde no pinch
+
+                        cursorGroup.scale.set(0.8, 0.8, 0.8); // Pulsa para baixo
+
+                        statusEl.innerText = "ACTION: PINCH_DETECTED"; } else {
+                        ringMat.color.setHex(0x00f2ff); // Azul padrão
+
+                        cursorGroup.scale.set(1, 1, 1);
+
+                        statusEl.innerText = "SYSTEM: TRACKING_ACTIVE";
+}
+                        debugEl.innerText = `X: ${data.x.toFixed(2)} | Y: ${data.y.toFixed(2)}`;
                     }
                 };
 
-                ws.onclose = () => {
-                    status.innerText = "OmniLab HUD: Disconnected";
-                    status.style.color = "#f00";
+                // --- 4. LOOP DE ANIMAÇÃO ---
+                function animate() {
+                
+                requestAnimationFrame(animate);
+                innerRing.rotation.z += 0.05;
+                outerRing.rotation.z -= 0.02;
+                renderer.render(scene, camera);
+                }
+                animate();
+
+                window.onresize = () => {
+                    camera.aspect = window.innerWidth / window.innerHeight;
+                    camera.updateProjectionMatrix();
+
+                    renderer.setSize(window.innerWidth, window.innerHeight);
+
                 };
             </script>
         </body>
     </html>
     """)
+
 
 @app.websocket("/ws/hud")
 async def websocket_endpoint(websocket: WebSocket):
