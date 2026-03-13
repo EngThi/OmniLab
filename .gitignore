@@ -26,6 +26,7 @@ models/
 .vscode/
 *.log
 *.tmp
+LEMBRAR.txt
 
 # Lixo de OS
 .DS_Store

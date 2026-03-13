@@ -46,6 +46,13 @@ options = vision.HandLandmarkerOptions(
 )
 detector = vision.HandLandmarker.create_from_options(options)
 
+def validate_frame(frame):
+    if frame is None or not isinstance(frame, np.ndarray):
+        raise ValueError("Frame inválido")
+    if frame.size == 0:
+        raise ValueError("Frame vazio")
+    return True
+
 async def vision_loop():
     uri = "ws://localhost:8000/ws/vision"
     
@@ -57,7 +64,8 @@ async def vision_loop():
                 
                 if not cap.isOpened():
                     print("Erro: Câmera não encontrada!")
-                    return
+                    await asyncio.sleep(5)
+                    continue
 
                 last_frame = None
 
@@ -65,6 +73,12 @@ async def vision_loop():
                     success, img = cap.read()
                     if not success:
                         break
+
+                    try:
+                        validate_frame(img)
+                    except ValueError as e:
+                        print(f"Erro de validação: {e}")
+                        continue
 
                     # Espelhar e processar frame
                     img = cv2.flip(img, 1)
@@ -120,21 +134,36 @@ async def vision_loop():
                         msg = await asyncio.wait_for(websocket.recv(), timeout=0.001)
                         data = json.loads(msg)
                         
-                        if data.get("command") == "analyze" and model:
-                            print("Comando de análise recebido! Chamando Gemini...")
-                            _, buffer = cv2.imencode('.jpg', last_frame)
-                            
-                            # Rodar Gemini em thread separada para não travar o loop de vídeo
-                            loop = asyncio.get_event_loop()
-                            response = await loop.run_in_executor(None, lambda: model.generate_content([
-                                "Descreva o que você vê nesta imagem de forma curta e técnica para um HUD de assistente IA.",
-                                {"mime_type": "image/jpeg", "data": buffer.tobytes()}
-                            ]))
-                            
+                        if data.get("command") == "analyze":
+                            if model:
+                                print("Comando de análise recebido! Chamando Gemini...")
+                                # Notificar HUD que a análise começou
+                                await websocket.send(json.dumps({
+                                    "type": "status_update",
+                                    "message": "ANALYZING ENVIRONMENT..."
+                                }))
+                                
+                                _, buffer = cv2.imencode('.jpg', last_frame)
+                                
+                                # Rodar Gemini em thread separada para não travar o loop de vídeo
+                                try:
+                                    loop = asyncio.get_event_loop()
+                                    response = await loop.run_in_executor(None, lambda: model.generate_content([
+                                        "Descreva o que você vê nesta imagem de forma curta e técnica para um HUD de assistente IA.",
+                                        {"mime_type": "image/jpeg", "data": buffer.tobytes()}
+                                    ]))
+                                    analysis_text = response.text
+                                except Exception as e:
+                                    print(f"Erro no Gemini: {e}")
+                                    analysis_text = "Erro na análise da IA."
+                            else:
+                                print("Gemini não configurado.")
+                                analysis_text = "IA não configurada (.env ausente)."
+
                             print("Análise concluída.")
                             await websocket.send(json.dumps({
                                 "type": "analysis_result",
-                                "text": response.text
+                                "text": analysis_text
                             }))
                     except asyncio.TimeoutError:
                         pass

@@ -1,8 +1,12 @@
-uvicorn
 fastapi
-python-multipart
+uvicorn
 websockets
-mediapipe
 opencv-python
+mediapipe
 numpy
-requests
+google-generativeai
+pillow
+python-dotenv
+pytest
+pytest-asyncio
+httpx

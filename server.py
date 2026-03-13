@@ -1,13 +1,32 @@
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
 from fastapi.responses import HTMLResponse
+from pydantic import BaseModel
 import json
 import asyncio
+import base64
+import os
+import io
+from PIL import Image
+from dotenv import load_dotenv
+import google.generativeai as genai
+
+# Carregar variáveis de ambiente e configurar Gemini
+load_dotenv()
+api_key = os.getenv("GEMINI_API_KEY")
+if api_key:
+    genai.configure(api_key=api_key)
+    model = genai.GenerativeModel('gemini-1.5-flash')
+else:
+    model = None
 
 app = FastAPI()
 
 # Listas de conexões ativas
 hud_connections = []
 vision_connections = []
+
+class AnalyzeRequest(BaseModel):
+    image: str # base64 string
 
 @app.get("/")
 async def get():
@@ -18,11 +37,28 @@ async def get():
             <title>OmniLab HUD</title>
             <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
             <style>
-                body { margin: 0; overflow: hidden; background: #000; font-family: 'Courier New', monospace; }
+                :root {
+                    --bg-color: #000;
+                    --text-color: #00f2ff;
+                    --glow-color: #00f2ff;
+                }
+                body.light-mode {
+                    --bg-color: #f0f0f0;
+                    --text-color: #1a1a1a;
+                    --glow-color: #0066cc;
+                }
+                body { 
+                    margin: 0; 
+                    overflow: hidden; 
+                    background: var(--bg-color); 
+                    color: var(--text-color);
+                    font-family: 'Courier New', monospace; 
+                    transition: background 0.3s, color 0.3s;
+                }
                 #ui-layer {
                     position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-                    pointer-events: none; color: #00f2ff; padding: 20px;
-                    text-shadow: 0 0 10px #00f2ff;
+                    pointer-events: none; padding: 20px;
+                    text-shadow: 0 0 10px var(--glow-color);
                 }
                 .scanline {
                     width: 100%; height: 2px; background: rgba(0, 242, 245, 0.1);
@@ -36,15 +72,28 @@ async def get():
                 }
                 #voice-transcript {
                     margin-top: 5px;
-                    color: #fff;
+                    color: var(--text-color);
                     font-size: 0.9em;
                     max-width: 600px;
                     background: rgba(0,0,0,0.5);
                     padding: 5px;
                 }
+                #mode-toggle {
+                    position: absolute;
+                    top: 20px;
+                    right: 20px;
+                    pointer-events: auto;
+                    background: rgba(0, 242, 255, 0.2);
+                    border: 1px solid var(--text-color);
+                    color: var(--text-color);
+                    padding: 5px 10px;
+                    cursor: pointer;
+                    z-index: 100;
+                }
             </style>
         </head>
-        <body>
+        <body class="dark-mode">
+            <button id="mode-toggle">TOGGLE MODE</button>
             <div id="ui-layer">
                 <div class="scanline"></div>
                 <h2> OMNILAB OS // CORE_V1</h2>
@@ -79,6 +128,11 @@ async def get():
                 const debugEl = document.getElementById('debug');
                 const voiceTranscriptEl = document.getElementById('voice-transcript');
                 const ws = new WebSocket(`ws://${window.location.host}/ws/hud`);
+
+                const modeToggle = document.getElementById('mode-toggle');
+                modeToggle.onclick = () => {
+                    document.body.classList.toggle('light-mode');
+                };
                 
                 ws.onmessage = (event) => {
                     const data = JSON.parse(event.data);
@@ -95,15 +149,19 @@ async def get():
                             cursorGroup.scale.set(0.8, 0.8, 0.8);
                             statusEl.innerText = "ACTION: PINCH_DETECTED"; 
                         } else {
-                            ringMat.color.setHex(0x00f2ff);
+                            const isLight = document.body.classList.contains('light-mode');
+                            ringMat.color.setHex(isLight ? 0x0066cc : 0x00f2ff);
                             cursorGroup.scale.set(1, 1, 1);
                             statusEl.innerText = "SYSTEM: TRACKING_ACTIVE";
                         }
                         debugEl.innerText = `X: ${data.x.toFixed(2)} | Y: ${data.y.toFixed(2)}`;
+                    } else if (data.type === 'status_update') {
+                        statusEl.innerText = `STATUS: ${data.message}`;
                     } else if (data.type === 'analysis_result') {
                         statusEl.innerText = "ANALYSIS COMPLETE";
-                        voiceTranscriptEl.innerHTML = `<div style="color: #00f2ff">> ANALYSIS: ${data.text}</div>`;
-                        ringMat.color.setHex(0x00f2ff);
+                        voiceTranscriptEl.innerHTML = `<div style="color: var(--text-color)">> ANALYSIS: ${data.text}</div>`;
+                        const isLight = document.body.classList.contains('light-mode');
+                        ringMat.color.setHex(isLight ? 0x0066cc : 0x00f2ff);
                     }
                 };
 
@@ -191,6 +249,24 @@ async def websocket_vision(websocket: WebSocket):
     except WebSocketDisconnect:
         vision_connections.remove(websocket)
 
+@app.post("/analyze")
+async def analyze_frame(request: AnalyzeRequest):
+    if not model:
+        return {"error": "Gemini API key not configured", "text": "IA indisponível"}
+    
+    try:
+        image_data = base64.b64decode(request.image)
+        image = Image.open(io.BytesIO(image_data))
+        
+        response = await asyncio.to_thread(
+            model.generate_content,
+            ["Descreva o que você vê nesta imagem de forma curta e técnica para um HUD de assistente IA.", image]
+        )
+        
+        return {"status": "success", "text": response.text}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.post("/ingest/gesture")
 async def ingest_gesture(data: dict):
     disconnected = []
@@ -205,3 +281,7 @@ async def ingest_gesture(data: dict):
             hud_connections.remove(conn)
             
     return {"status": "sent"}
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)
