@@ -1,11 +1,5 @@
 #!/usr/bin/env python3
-"""
-Baixa o modelo MediaPipe Hand Landmarker.
-Rode uma vez antes de usar o vision.py:
-    python scripts/download_model.py
 
-O arquivo .task NÃO vai pro Git (está no .gitignore).
-"""
 import urllib.request
 import os
 import sys

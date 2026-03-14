@@ -17,7 +17,7 @@ load_dotenv()
 api_key = os.getenv("GEMINI_API_KEY")
 if api_key:
     genai.configure(api_key=api_key)
-    model = genai.GenerativeModel('gemini-1.5-flash')
+    model = genai.GenerativeModel('gemini-3-flash-preview')
 else:
     print("AVISO: GEMINI_API_KEY não encontrada no .env. Análise de imagem não funcionará.")
     model = None
@@ -129,6 +129,37 @@ async def vision_loop():
                     # Enviar dados de gesto
                     await websocket.send(json.dumps(gesture_data))
 
+                    # Periodic environmental scan
+                    current_time = int(time.time() * 1000)
+                    if model and (current_time - last_scan_time > SCAN_INTERVAL):
+                        print(f"[\033[94mINFO\033[0m] Performing periodic environmental scan...")
+                        await websocket.send(json.dumps({
+                            "type": "status_update",
+                            "message": "SCANNING... ANALYZING PHOTONS"
+                        }))
+                        
+                        _, buffer = cv2.imencode('.jpg', last_frame)
+                        try:
+                            loop = asyncio.get_event_loop()
+                            prompt = (
+                                "You are OMNILAB OS, a tactical AI assistant. "
+                                "Provide a brief, technical, HUD-style observation of the current environment (e.g., lighting, notable objects, potential anomalies). "
+                                "Keep it under 15 words."
+                            )
+                            response = await loop.run_in_executor(None, lambda: model.generate_content([prompt, {"mime_type": "image/jpeg", "data": buffer.tobytes()}]))
+                            observation_text = response.text.strip().upper()
+                            await websocket.send(json.dumps({
+                                "type": "environmental_observation",
+                                "text": observation_text
+                            }))
+                            last_scan_time = current_time # Update scan time only on success
+                        except Exception as e:
+                            print(f"[\033[91mERROR\033[0m] Periodic scan failed: {e}")
+                            await websocket.send(json.dumps({
+                                "type": "status_update",
+                                "message": "SCAN FAILED"
+                            }))
+                    
                     # Verificar comandos (Não-bloqueante)
                     try:
                         msg = await asyncio.wait_for(websocket.recv(), timeout=0.001)
@@ -136,29 +167,34 @@ async def vision_loop():
                         
                         if data.get("command") == "analyze":
                             if model:
-                                print("Comando de análise recebido! Chamando Gemini...")
+                                print(f"[\033[94mINFO\033[0m] Comando de análise recebido. Capturando frame...")
                                 # Notificar HUD que a análise começou
                                 await websocket.send(json.dumps({
                                     "type": "status_update",
-                                    "message": "ANALYZING ENVIRONMENT..."
+                                    "message": "SCANNING... ANALYZING PHOTONS"
                                 }))
                                 
                                 _, buffer = cv2.imencode('.jpg', last_frame)
                                 
-                                # Rodar Gemini em thread separada para não travar o loop de vídeo
+                                # Rodar Gemini em thread separada com prompt aprimorado
                                 try:
                                     loop = asyncio.get_event_loop()
+                                    prompt = (
+                                        "Você é o OMNILAB OS, um sistema de IA tático. "
+                                        "Analise a imagem e forneça uma descrição técnica, concisa (máximo 15 palavras) "
+                                        "e em tom de relatório militar/HUD. Foque em objetos, iluminação e pessoas."
+                                    )
                                     response = await loop.run_in_executor(None, lambda: model.generate_content([
-                                        "Descreva o que você vê nesta imagem de forma curta e técnica para um HUD de assistente IA.",
+                                        prompt,
                                         {"mime_type": "image/jpeg", "data": buffer.tobytes()}
                                     ]))
-                                    analysis_text = response.text
+                                    analysis_text = response.text.strip().upper()
                                 except Exception as e:
-                                    print(f"Erro no Gemini: {e}")
-                                    analysis_text = "Erro na análise da IA."
+                                    print(f"[\033[91mERROR\033[0m] Gemini failed: {e}")
+                                    analysis_text = "ERROR: AI_MODULE_OFFLINE"
                             else:
-                                print("Gemini não configurado.")
-                                analysis_text = "IA não configurada (.env ausente)."
+                                print(f"[\033[93mWARN\033[0m] Gemini API Key missing.")
+                                analysis_text = "ERROR: API_KEY_NOT_CONFIGURED"
 
                             print("Análise concluída.")
                             await websocket.send(json.dumps({
@@ -168,23 +204,4 @@ async def vision_loop():
                     except asyncio.TimeoutError:
                         pass
                     except Exception as e:
-                        print(f"Erro no comando: {e}")
-
-                    cv2.imshow("OmniLab Vision", annotated_image)
-                    if cv2.waitKey(1) & 0xFF == ord('q'):
-                        cap.release()
-                        cv2.destroyAllWindows()
-                        return
-
-                cap.release()
-                cv2.destroyAllWindows()
-
-        except websockets.exceptions.ConnectionClosed:
-            print("Conexão com servidor perdida. Tentando reconectar em 3s...")
-            await asyncio.sleep(3)
-        except Exception as e:
-            print(f"Erro na conexão: {e}. Tentando reconectar em 3s...")
-            await asyncio.sleep(3)
-
-if __name__ == "__main__":
-    asyncio.run(vision_loop())
+                        print(f"[\033[91mERROR\033[0m] Command processing error: {e}")

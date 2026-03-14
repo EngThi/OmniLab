@@ -28,10 +28,10 @@ python server.py & python vision.py
 
 ## 🧠 How it works
 1. **Webcam**: Captura frames em tempo real via OpenCV.
-2. **OpenCV frame**: Processa a imagem para detecção de mãos (MediaPipe).
+2. **OpenCV frame**: Processa a imagem para detecção de mãos (MediaPipe Tasks API).
 3. **Gemini Vision**: Quando solicitado, o frame é enviado para a API do Gemini para análise técnica.
 4. **WebSocket**: Gestos e resultados de análise são transmitidos instantaneamente para o HUD.
-5. **HUD**: Interface imersiva (Three.js) que renderiza o feedback visual e dados da IA.
+5. **HUD**: Interface modular imersiva (Three.js) servida via `static/index.html`.
 
 ## 🚀 Deploy & Demo
 - **Local**: Runs locally, open [http://localhost:8000](http://localhost:8000)
