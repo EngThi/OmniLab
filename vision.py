@@ -205,3 +205,22 @@ async def vision_loop():
                         pass
                     except Exception as e:
                         print(f"[\033[91mERROR\033[0m] Command processing error: {e}")
+
+                    cv2.imshow("OmniLab Vision", annotated_image)
+                    if cv2.waitKey(1) & 0xFF == ord('q'):
+                        cap.release()
+                        cv2.destroyAllWindows()
+                        return
+
+                cap.release()
+                cv2.destroyAllWindows()
+
+        except websockets.exceptions.ConnectionClosed:
+            print("[\033[93mWARN\033[0m] Conexão com servidor perdida. Tentando reconectar em 3s...")
+            await asyncio.sleep(3)
+        except Exception as e:
+            print(f"[\033[91mERROR\033[0m] Erro na conexão: {e}. Tentando reconectar em 3s...")
+            await asyncio.sleep(3)
+
+if __name__ == "__main__":
+    asyncio.run(vision_loop())
