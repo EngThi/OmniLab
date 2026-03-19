@@ -9,16 +9,17 @@ import os
 import io
 from PIL import Image
 from dotenv import load_dotenv
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 
 # Carregar variáveis de ambiente e configurar Gemini
 load_dotenv()
 api_key = os.getenv("GEMINI_API_KEY")
 if api_key:
-    genai.configure(api_key=api_key)
-    model = genai.GenerativeModel('gemini-3-flash-preview')
+    client = genai.Client(api_key=api_key)
+    model_id = 'gemini-3-flash-preview'
 else:
-    model = None
+    client = None
 
 app = FastAPI()
 
@@ -64,18 +65,28 @@ async def websocket_vision(websocket: WebSocket):
 
 @app.post("/analyze")
 async def analyze_frame(request: AnalyzeRequest):
-    if not model:
+    if not client:
         return {"error": "Gemini API key not configured", "text": "IA indisponível"}
     
     try:
         image_data = base64.b64decode(request.image)
-        image = Image.open(io.BytesIO(image_data))
         
-        response = await asyncio.to_thread(
-            model.generate_content,
-            ["Descreva o que você vê nesta imagem de forma curta e técnica para um HUD de assistente IA.", image]
+        # Configuração de Pensamento
+        thinking_config = types.GenerateContentConfig(
+            thinking_config=types.ThinkingConfig(include_thoughts=True)
         )
-        
+
+        response = await asyncio.to_thread(
+            client.models.generate_content,
+            model=model_id,
+            contents=[
+                types.Content(role="user", parts=[
+                    types.Part.from_bytes(mime_type="image/jpeg", data=image_data),
+                    types.Part.from_text(text="Descreva o que você vê nesta imagem de forma curta e técnica para um HUD de assistente IA.")
+                ])
+            ],
+            config=thinking_config
+        )
         return {"status": "success", "text": response.text}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

@@ -1,13 +1,14 @@
 <!DOCTYPE html>
 <html>
     <head>
-        <title>OmniLab HUD</title>
+        <title>OmniLab HUD // CORE_V2</title>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
         <style>
             :root {
                 --bg-color: #000;
                 --text-color: #00f2ff;
                 --glow-color: #00f2ff;
+                --warn-color: #ff00ff;
             }
             body.light-mode {
                 --bg-color: #f0f0f0;
@@ -21,6 +22,7 @@
                 color: var(--text-color);
                 font-family: 'Courier New', monospace; 
                 transition: background 0.3s, color 0.3s;
+                text-transform: uppercase;
             }
             #ui-layer {
                 position: absolute; top: 0; left: 0; width: 100%; height: 100%;
@@ -32,42 +34,63 @@
                 position: absolute; animation: scan 4s linear infinite;
             }
             @keyframes scan { from {top: 0;} to {top: 100%;} }
+            
+            /* Painel de Diagnóstico */
+            #diag-panel {
+                position: absolute; bottom: 20px; right: 20px;
+                font-size: 0.7em; text-align: right;
+                border-right: 2px solid var(--text-color); padding-right: 10px;
+            }
+
             #voice-status {
                 margin-top: 10px;
-                color: #ff00ff;
+                color: var(--warn-color);
                 font-weight: bold;
+                letter-spacing: 2px;
             }
-            #voice-transcript {
-                margin-top: 5px;
-                color: var(--text-color);
-                font-size: 0.9em;
-                max-width: 600px;
-                background: rgba(0,0,0,0.5);
-                padding: 5px;
+            #log-console {
+                margin-top: 15px;
+                font-size: 0.8em;
+                max-width: 400px;
+                height: 150px;
+                overflow: hidden;
+                background: rgba(0, 242, 255, 0.05);
+                border-left: 1px solid var(--text-color);
+                padding: 10px;
+                display: flex;
+                flex-direction: column-reverse;
             }
+            .log-entry { margin-bottom: 5px; animation: fade 0.5s ease; }
+            @keyframes fade { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: translateX(0); } }
+
             #mode-toggle {
-                position: absolute;
-                top: 20px;
-                right: 20px;
-                pointer-events: auto;
-                background: rgba(0, 242, 255, 0.2);
-                border: 1px solid var(--text-color);
-                color: var(--text-color);
-                padding: 5px 10px;
-                cursor: pointer;
-                z-index: 100;
+                position: absolute; top: 20px; right: 20px;
+                pointer-events: auto; background: none;
+                border: 1px solid var(--text-color); color: var(--text-color);
+                padding: 5px 10px; cursor: pointer; z-index: 100;
             }
         </style>
     </head>
     <body class="dark-mode">
-        <button id="mode-toggle">TOGGLE MODE</button>
+        <button id="mode-toggle">THEME_SYNC</button>
         <div id="ui-layer">
             <div class="scanline"></div>
-            <h2> OMNILAB OS // CORE_V1</h2>
-            <div id="status">INITIATING...</div>
-            <div id="debug"></div>
-            <div id="voice-status">MIC: INITIALIZING...</div>
-            <div id="voice-transcript"></div>
+            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                <div>
+                    <h2 style="margin: 0;">OMNILAB OS // v2.0.4</h2>
+                    <div id="status">SYSTEM: STANDBY</div>
+                    <div id="voice-status">MIC: LISTENING_ACTIVE</div>
+                </div>
+                <div id="diag-panel">
+                    <div id="fps">FPS: --</div>
+                    <div id="latency">LATENCY: --ms</div>
+                    <div id="model">CORE: GEMINI-3-THINKING</div>
+                </div>
+            </div>
+
+            <div id="log-console">
+                <!-- Logs aparecerão aqui -->
+            </div>
         </div>
 
         <script>
@@ -77,6 +100,7 @@
             renderer.setSize(window.innerWidth, window.innerHeight);
             document.body.appendChild(renderer.domElement);
 
+            // Interface 3D Elements
             const cursorGroup = new THREE.Group();
             const ringMat = new THREE.MeshBasicMaterial({ color: 0x00f2ff, transparent: true, opacity: 0.8, side: THREE.DoubleSide });
             const innerRing = new THREE.Mesh(new THREE.RingGeometry(0.8, 1, 32), ringMat);
@@ -92,105 +116,93 @@
             camera.position.z = 15;
 
             const statusEl = document.getElementById('status');
-            const debugEl = document.getElementById('debug');
-            const voiceTranscriptEl = document.getElementById('voice-transcript');
-            
-            // Reconnect logic for WebSocket
+            const fpsEl = document.getElementById('fps');
+            const latencyEl = document.getElementById('latency');
+            const logConsole = document.getElementById('log-console');
+
+            function addLog(text, color = 'var(--text-color)') {
+                const entry = document.createElement('div');
+                entry.className = 'log-entry';
+                entry.style.color = color;
+                entry.innerText = `> ${text}`;
+                logConsole.prepend(entry);
+                if (logConsole.childNodes.length > 8) logConsole.lastChild.remove();
+            }
+
+            // SÍNTESE DE VOZ (J.A.R.V.I.S. Speak)
+            function speak(text) {
+                if ('speechSynthesis' in window) {
+                    const utterance = new SpeechSynthesisUtterance(text);
+                    utterance.lang = 'pt-BR';
+                    utterance.rate = 1.1;
+                    utterance.pitch = 0.9;
+                    window.speechSynthesis.speak(utterance);
+                }
+            }
+
+            // WEBSOCKET LOGIC
             let ws;
             function connect() {
                 ws = new WebSocket(`ws://${window.location.host}/ws/hud`);
                 ws.onmessage = (event) => {
                     const data = JSON.parse(event.data);
+                    
                     if (data.type === 'gesture') {
                         const targetX = (data.x - 0.5) * 30;
                         const targetY = (0.5 - data.y) * 20;
                         cursorGroup.position.x += (targetX - cursorGroup.position.x) * 0.3;
                         cursorGroup.position.y += (targetY - cursorGroup.position.y) * 0.3;
-                        grid.position.x = cursorGroup.position.x * -0.1;
-                        grid.position.y = cursorGroup.position.y * -0.1;
-
+                        
+                        if (data.fps) fpsEl.innerText = `FPS: ${data.fps}`;
+                        
                         if (data.pinch) {
                             ringMat.color.setHex(0x00ff00);
-                            cursorGroup.scale.set(0.8, 0.8, 0.8);
-                            statusEl.innerText = "ACTION: PINCH_DETECTED"; 
+                            statusEl.innerText = "ACTION: PINCH_LOCKED";
                         } else {
                             const isLight = document.body.classList.contains('light-mode');
                             ringMat.color.setHex(isLight ? 0x0066cc : 0x00f2ff);
-                            cursorGroup.scale.set(1, 1, 1);
                             statusEl.innerText = "SYSTEM: TRACKING_ACTIVE";
                         }
-                        debugEl.innerText = `X: ${data.x.toFixed(2)} | Y: ${data.y.toFixed(2)}`;
-                    } else if (data.type === 'status_update') {
-                        statusEl.innerText = `STATUS: ${data.message}`;
-                    } else if (data.type === 'environmental_observation') {
-                        // New handler for AI observations
-                        statusEl.innerText = "ENVIRONMENTAL REPORT"; // Or a more specific status
-                        voiceTranscriptEl.innerHTML = `<div style="color: var(--glow-color)">> OBSERVATION: ${data.text}</div>`;
-                        const isLight = document.body.classList.contains('light-mode');
-                        ringMat.color.setHex(isLight ? 0x0066cc : 0x00f2ff); // Keep it consistent
+                    } 
+                    else if (data.type === 'status_update') {
+                        statusEl.innerText = data.message;
+                        addLog(data.message, 'var(--warn-color)');
+                    }
+                    else if (data.type === 'analysis_result') {
+                        addLog(`ANALYSIS: ${data.text}`, '#fff');
+                        speak(data.text); // IA fala o resultado
+                    }
+                    else if (data.type === 'environmental_observation') {
+                        addLog(`OBS: ${data.text}`, 'var(--warn-color)');
                     }
                 };
                 ws.onclose = () => setTimeout(connect, 2000);
             }
             connect();
 
-            const modeToggle = document.getElementById('mode-toggle');
-            modeToggle.onclick = () => {
-                document.body.classList.toggle('light-mode');
-            };
-
-            const voiceStatusEl = document.getElementById('voice-status');
+            // RECONHECIMENTO DE VOZ
             window.SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-            
             if (window.SpeechRecognition) {
                 const recognition = new SpeechRecognition();
                 recognition.continuous = true;
-                recognition.interimResults = true; // Mantemos true
+                recognition.interimResults = true;
                 recognition.lang = 'pt-BR';
 
-                recognition.onstart = () => {
-                    voiceStatusEl.innerText = "MIC: LISTENING_MODE";
-                    voiceStatusEl.style.color = "#00ff00";
-                };
-
                 recognition.onresult = (event) => {
-                    let interimTranscript = '';
                     let finalTranscript = '';
-
                     for (let i = event.resultIndex; i < event.results.length; ++i) {
-                        const transcript = event.results[i][0].transcript;
                         if (event.results[i].isFinal) {
-                            finalTranscript += transcript;
-                        } else {
-                            interimTranscript += transcript;
-                        }
-                    }
-
-                    // Se temos um resultado final, processamos comandos
-                    if (finalTranscript !== '') {
-                        const cleanText = finalTranscript.toLowerCase().trim();
-                        voiceTranscriptEl.innerHTML = `<span style="color: var(--text-color)">> ${cleanText}</span>`;
-                        
-                        if (cleanText.includes("analisar") || cleanText.includes("analyze")) {
-                            statusEl.innerText = "SYSTEM: ANALYZING ENVIRONMENT...";
-                            ringMat.color.setHex(0xff00ff);
-                            if (ws && ws.readyState === WebSocket.OPEN) {
+                            finalTranscript = event.results[i][0].transcript.toLowerCase().trim();
+                            addLog(`USER: ${finalTranscript}`);
+                            
+                            if (finalTranscript.includes("analisar") || finalTranscript.includes("status")) {
+                                statusEl.innerText = "SYSTEM: INITIATING DEEP SCAN";
                                 ws.send(JSON.stringify({type: 'command', command: 'analyze'}));
                             }
-                        } else if (cleanText.includes("desativar")) {
-                            statusEl.innerText = "SYSTEM: STANDBY";
-                            ringMat.color.setHex(0xff0000);
                         }
-                    } else {
-                        // Se é apenas intermediário, mostramos com opacidade menor para feedback instantâneo
-                        voiceTranscriptEl.innerHTML = `<span style="opacity: 0.5">> ${interimTranscript.toLowerCase()}</span>`;
                     }
                 };
-
-                recognition.onend = () => {
-                    setTimeout(() => recognition.start(), 1000);
-                };
-
+                recognition.onend = () => recognition.start();
                 try { recognition.start(); } catch(e) {}
             }
 
@@ -202,6 +214,7 @@
             }
             animate();
 
+            document.getElementById('mode-toggle').onclick = () => document.body.classList.toggle('light-mode');
             window.onresize = () => {
                 camera.aspect = window.innerWidth / window.innerHeight;
                 camera.updateProjectionMatrix();
