@@ -9,6 +9,7 @@
                 --text-color: #00f2ff;
                 --glow-color: #00f2ff;
                 --warn-color: #ff00ff;
+                --accent-color: #00ff00;
             }
             body.light-mode {
                 --bg-color: #f0f0f0;
@@ -35,24 +36,17 @@
             }
             @keyframes scan { from {top: 0;} to {top: 100%;} }
             
-            /* Painel de Diagnóstico */
             #diag-panel {
                 position: absolute; bottom: 20px; right: 20px;
                 font-size: 0.7em; text-align: right;
                 border-right: 2px solid var(--text-color); padding-right: 10px;
             }
 
-            #voice-status {
-                margin-top: 10px;
-                color: var(--warn-color);
-                font-weight: bold;
-                letter-spacing: 2px;
-            }
             #log-console {
                 margin-top: 15px;
                 font-size: 0.8em;
                 max-width: 400px;
-                height: 150px;
+                height: 180px;
                 overflow: hidden;
                 background: rgba(0, 242, 255, 0.05);
                 border-left: 1px solid var(--text-color);
@@ -77,20 +71,17 @@
             <div class="scanline"></div>
             <div style="display: flex; justify-content: space-between; align-items: flex-start;">
                 <div>
-                    <h2 style="margin: 0;">OMNILAB OS // v2.0.4</h2>
+                    <h2 style="margin: 0;">OMNILAB OS // v2.1.0</h2>
                     <div id="status">SYSTEM: STANDBY</div>
-                    <div id="voice-status">MIC: LISTENING_ACTIVE</div>
+                    <div id="gesture-hint" style="font-size: 0.6em; color: var(--accent-color); opacity: 0.7;">PINCH_HOLD: DEEP_SCAN</div>
                 </div>
                 <div id="diag-panel">
                     <div id="fps">FPS: --</div>
-                    <div id="latency">LATENCY: --ms</div>
                     <div id="model">CORE: GEMINI-3-THINKING</div>
                 </div>
             </div>
 
-            <div id="log-console">
-                <!-- Logs aparecerão aqui -->
-            </div>
+            <div id="log-console"></div>
         </div>
 
         <script>
@@ -100,7 +91,6 @@
             renderer.setSize(window.innerWidth, window.innerHeight);
             document.body.appendChild(renderer.domElement);
 
-            // Interface 3D Elements
             const cursorGroup = new THREE.Group();
             const ringMat = new THREE.MeshBasicMaterial({ color: 0x00f2ff, transparent: true, opacity: 0.8, side: THREE.DoubleSide });
             const innerRing = new THREE.Mesh(new THREE.RingGeometry(0.8, 1, 32), ringMat);
@@ -117,7 +107,6 @@
 
             const statusEl = document.getElementById('status');
             const fpsEl = document.getElementById('fps');
-            const latencyEl = document.getElementById('latency');
             const logConsole = document.getElementById('log-console');
 
             function addLog(text, color = 'var(--text-color)') {
@@ -126,21 +115,19 @@
                 entry.style.color = color;
                 entry.innerText = `> ${text}`;
                 logConsole.prepend(entry);
-                if (logConsole.childNodes.length > 8) logConsole.lastChild.remove();
+                if (logConsole.childNodes.length > 10) logConsole.lastChild.remove();
             }
 
-            // SÍNTESE DE VOZ (J.A.R.V.I.S. Speak)
             function speak(text) {
                 if ('speechSynthesis' in window) {
+                    window.speechSynthesis.cancel();
                     const utterance = new SpeechSynthesisUtterance(text);
                     utterance.lang = 'pt-BR';
-                    utterance.rate = 1.1;
-                    utterance.pitch = 0.9;
+                    utterance.rate = 1.2;
                     window.speechSynthesis.speak(utterance);
                 }
             }
 
-            // WEBSOCKET LOGIC
             let ws;
             function connect() {
                 ws = new WebSocket(`ws://${window.location.host}/ws/hud`);
@@ -155,13 +142,17 @@
                         
                         if (data.fps) fpsEl.innerText = `FPS: ${data.fps}`;
                         
-                        if (data.pinch) {
-                            ringMat.color.setHex(0x00ff00);
-                            statusEl.innerText = "ACTION: PINCH_LOCKED";
+                        // Feedback de carregamento do gesto
+                        if (data.pinch_progress > 0) {
+                            const p = data.pinch_progress;
+                            ringMat.color.setRGB(p, 1-p, 1);
+                            cursorGroup.scale.set(1 - (p*0.4), 1 - (p*0.4), 1);
+                            statusEl.innerText = `SCAN_LOADING: ${Math.round(p*100)}%`;
                         } else {
                             const isLight = document.body.classList.contains('light-mode');
                             ringMat.color.setHex(isLight ? 0x0066cc : 0x00f2ff);
-                            statusEl.innerText = "SYSTEM: TRACKING_ACTIVE";
+                            cursorGroup.scale.set(1, 1, 1);
+                            if (statusEl.innerText.includes("SCAN_LOADING")) statusEl.innerText = "SYSTEM: TRACKING";
                         }
                     } 
                     else if (data.type === 'status_update') {
@@ -170,41 +161,12 @@
                     }
                     else if (data.type === 'analysis_result') {
                         addLog(`ANALYSIS: ${data.text}`, '#fff');
-                        speak(data.text); // IA fala o resultado
-                    }
-                    else if (data.type === 'environmental_observation') {
-                        addLog(`OBS: ${data.text}`, 'var(--warn-color)');
+                        speak(data.text);
                     }
                 };
                 ws.onclose = () => setTimeout(connect, 2000);
             }
             connect();
-
-            // RECONHECIMENTO DE VOZ
-            window.SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-            if (window.SpeechRecognition) {
-                const recognition = new SpeechRecognition();
-                recognition.continuous = true;
-                recognition.interimResults = true;
-                recognition.lang = 'pt-BR';
-
-                recognition.onresult = (event) => {
-                    let finalTranscript = '';
-                    for (let i = event.resultIndex; i < event.results.length; ++i) {
-                        if (event.results[i].isFinal) {
-                            finalTranscript = event.results[i][0].transcript.toLowerCase().trim();
-                            addLog(`USER: ${finalTranscript}`);
-                            
-                            if (finalTranscript.includes("analisar") || finalTranscript.includes("status")) {
-                                statusEl.innerText = "SYSTEM: INITIATING DEEP SCAN";
-                                ws.send(JSON.stringify({type: 'command', command: 'analyze'}));
-                            }
-                        }
-                    }
-                };
-                recognition.onend = () => recognition.start();
-                try { recognition.start(); } catch(e) {}
-            }
 
             function animate() {
                 requestAnimationFrame(animate);

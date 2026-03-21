@@ -1,38 +1,9 @@
 # Python
 .venv/
-venv/
-env/
 __pycache__/
 *.pyc
-*.pyo
-*.pyd
-*.egg-info/
-dist/
-build/
-.eggs
-versao_nuvem/main.cpython-313.pyc
+hand_landmarker.task
 
-# MediaPipe / ML Models
-# Baixe com: python scripts/download_model.py
-*.task
-*.tflite
-*.onnx
-models/
-
-# Ambiente local / IDEs
+# System
+.logs_internal/
 .env
-.env.local
-.idx/
-.vscode/
-*.log
-*.tmp
-LEMBRAR.txt
-
-# Lixo de OS
-.DS_Store
-Thumbs.db
-
-# Capturas locais de câmera (nunca sobem pro repo)
-captures/
-*.mp4
-*.avi

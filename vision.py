@@ -54,11 +54,14 @@ def validate_frame(frame):
         raise ValueError("Frame vazio")
     return True
 
-SCAN_INTERVAL = 45000 
+SCAN_INTERVAL = 60000 # 1 minuto para scans automáticos agora
+PINCH_THRESHOLD_MS = 1500 # Tempo segurando a pinça para disparar scan
 
 async def vision_loop():
     uri = "ws://localhost:8000/ws/vision"
     last_scan_time = int(time.time() * 1000)
+    pinch_start_time = None
+    is_analyzing = False
     
     # Telemetria
     fps_start_time = time.time()
@@ -72,29 +75,18 @@ async def vision_loop():
     while True: 
         try:
             async with websockets.connect(uri) as websocket:
-                print("[\033[92mSUCCESS\033[0m] OmniLab Vision Conectada via WebSocket!")
+                print("[\033[92mSUCCESS\033[0m] OmniLab Vision Ativa!")
                 cap = cv2.VideoCapture(0)
                 
-                if not cap.isOpened():
-                    print("[\033[91mERROR\033[0m] Câmera não encontrada ou ocupada!")
-                    await asyncio.sleep(5)
-                    continue
-
-                last_frame = None
-
                 while cap.isOpened():
                     success, img = cap.read()
                     if not success: break
 
-                    # FPS Calculation
                     fps_counter += 1
                     if (time.time() - fps_start_time) > 1:
                         fps = fps_counter
                         fps_counter = 0
                         fps_start_time = time.time()
-
-                    try: validate_frame(img)
-                    except ValueError: continue
 
                     img = cv2.flip(img, 1)
                     last_frame = img.copy()
@@ -105,7 +97,7 @@ async def vision_loop():
                     detection_result = detector.detect_for_video(mp_image, timestamp)
 
                     annotated_image = cv2.cvtColor(img_rgb, cv2.COLOR_RGB2BGR)
-                    gesture_data = {"type": "gesture", "x": 0.5, "y": 0.5, "pinch": False, "fps": fps}
+                    gesture_data = {"type": "gesture", "x": 0.5, "y": 0.5, "pinch": False, "fps": fps, "pinch_progress": 0}
 
                     if detection_result.hand_landmarks:
                         annotated_image = draw_landmarks_on_image(annotated_image, detection_result)
@@ -116,64 +108,43 @@ async def vision_loop():
                             x2, y2 = int(hand_landmarks[8].x * w), int(hand_landmarks[8].y * h)
                             cx, cy = (x1 + x2) // 2, (y1 + y2) // 2
                             length = math.hypot(x2 - x1, y2 - y1)
-                            is_pinch = length < 40
                             
+                            is_pinching = length < 40
+                            pinch_progress = 0
+
+                            if is_pinching:
+                                if pinch_start_time is None:
+                                    pinch_start_time = timestamp
+                                else:
+                                    elapsed = timestamp - pinch_start_time
+                                    pinch_progress = min(elapsed / PINCH_THRESHOLD_MS, 1.0)
+                                    
+                                    # DISPARO POR GESTO (Tony Stark Style)
+                                    if elapsed >= PINCH_THRESHOLD_MS and not is_analyzing:
+                                        is_analyzing = True
+                                        asyncio.create_task(trigger_scan(websocket, last_frame, client, model_id, thinking_config))
+                                        pinch_start_time = timestamp # Reset para não disparar em loop
+                            else:
+                                pinch_start_time = None
+                                is_analyzing = False
+
                             cv2.line(annotated_image, (x1, y1), (x2, y2), (255, 0, 255), 2)
-                            cv2.circle(annotated_image, (cx, cy), 15 if is_pinch else 10, (0, 255, 0) if is_pinch else (255, 0, 255), cv2.FILLED)
+                            color = (0, 255, 0) if is_pinching else (255, 0, 255)
+                            cv2.circle(annotated_image, (cx, cy), int(10 + (pinch_progress * 10)), color, cv2.FILLED)
                             
-                            gesture_data = {"type": "gesture", "x": norm_x, "y": norm_y, "pinch": is_pinch, "fps": fps}
+                            gesture_data = {
+                                "type": "gesture", "x": norm_x, "y": norm_y, 
+                                "pinch": is_pinching, "fps": fps, "pinch_progress": pinch_progress
+                            }
 
                     await websocket.send(json.dumps(gesture_data))
 
-                    # Periodic scan logic
-                    current_time = int(time.time() * 1000)
-                    if client and (current_time - last_scan_time > SCAN_INTERVAL):
-                        last_scan_time = current_time
-                        print(f"[\033[94mINFO\033[0m] Routine scan...")
-                        _, buffer = cv2.imencode('.jpg', last_frame)
-                        try:
-                            response = await asyncio.to_thread(
-                                client.models.generate_content,
-                                model=model_id,
-                                contents=[
-                                    types.Content(role="user", parts=[
-                                        types.Part.from_bytes(mime_type="image/jpeg", data=buffer.tobytes()),
-                                        types.Part.from_text(text="Tactical report (10 words max):")
-                                    ])
-                                ],
-                                config=thinking_config
-                            )
-                            await websocket.send(json.dumps({
-                                "type": "environmental_observation",
-                                "text": response.text.strip().upper()
-                            }))
-                        except Exception as e: print(f"[\033[91mERROR\033[0m] Routine scan error: {e}")
-
-                    # Commands handling
+                    # Comandos de Voz (Mantidos para redundância)
                     try:
                         msg = await asyncio.wait_for(websocket.recv(), timeout=0.001)
                         data = json.loads(msg)
                         if data.get("command") == "analyze" and client:
-                            print(f"[\033[94mINFO\033[0m] Deep Analysis...")
-                            await websocket.send(json.dumps({"type": "status_update", "message": "DEEP_SCAN_IN_PROGRESS"}))
-                            _, buffer = cv2.imencode('.jpg', last_frame)
-                            try:
-                                response = await asyncio.to_thread(
-                                    client.models.generate_content,
-                                    model=model_id,
-                                    contents=[
-                                        types.Content(role="user", parts=[
-                                            types.Part.from_bytes(mime_type="image/jpeg", data=buffer.tobytes()),
-                                            types.Part.from_text(text="Você é o OMNILAB OS. Analise a imagem com precisão tática. Máximo 12 palavras.")
-                                        ])
-                                    ],
-                                    config=thinking_config
-                                )
-                                await websocket.send(json.dumps({
-                                    "type": "analysis_result",
-                                    "text": response.text.strip().upper()
-                                }))
-                            except Exception as e: print(f"[\033[91mERROR\033[0m] Deep Analysis error: {e}")
+                            asyncio.create_task(trigger_scan(websocket, last_frame, client, model_id, thinking_config))
                     except asyncio.TimeoutError: pass
 
                     cv2.imshow("OmniLab Vision", annotated_image)
@@ -184,8 +155,31 @@ async def vision_loop():
                 break 
 
         except Exception as e:
-            print(f"[\033[91mERROR\033[0m] Connection error: {e}")
+            print(f"[\033[91mERROR\033[0m] Vision error: {e}")
             await asyncio.sleep(3)
+
+async def trigger_scan(websocket, frame, client, model_id, config):
+    print(f"[\033[94mINFO\033[0m] Gesto/Voz detectado. Iniciando Deep Scan...")
+    await websocket.send(json.dumps({"type": "status_update", "message": "INITIATING_GESTURE_SCAN"}))
+    _, buffer = cv2.imencode('.jpg', frame)
+    try:
+        response = await asyncio.to_thread(
+            client.models.generate_content,
+            model=model_id,
+            contents=[
+                types.Content(role="user", parts=[
+                    types.Part.from_bytes(mime_type="image/jpeg", data=buffer.tobytes()),
+                    types.Part.from_text(text="Relatório tático do que você vê. Máximo 12 palavras.")
+                ])
+            ],
+            config=config
+        )
+        await websocket.send(json.dumps({
+            "type": "analysis_result",
+            "text": response.text.strip().upper()
+        }))
+    except Exception as e:
+        print(f"[\033[91mERROR\033[0m] Scan error: {e}")
 
 if __name__ == "__main__":
     asyncio.run(vision_loop())
