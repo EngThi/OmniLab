@@ -7,3 +7,18 @@ hand_landmarker.task
 # System
 .logs_internal/
 .env
+.antigravity/
+.idx/
+
+# Project Files (Privados/Removidos)
+api/
+core/
+scripts/
+utils/
+main.py
+STRATEGY.md
+TESTES/
+private_tools.tar.gz
+LEMBRAR.txt
+server.log
+wakatime.zip
