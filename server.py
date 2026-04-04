@@ -14,7 +14,7 @@ from dotenv import load_dotenv
 from google import genai
 from google.genai import types
 from playwright.async_api import async_playwright
-from playwright_stealth import stealth_async
+from playwright_stealth import stealth
 
 load_dotenv()
 api_key = os.getenv("GEMINI_API_KEY")
@@ -43,7 +43,7 @@ class OmniBrowser:
             user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
         )
         self.page = await self.context.new_page()
-        await stealth_async(self.page)
+        await stealth(self.page)
         self.active = True
         print("🌐 [OmniBrowser] Agent Started Successfully")
 
@@ -91,6 +91,9 @@ def _resize_image(data: bytes, max_size: int = 512) -> bytes:
     img.save(buf, format="JPEG", quality=70, optimize=True)
     return buf.getvalue()
 
+class AnalyzeRequest(BaseModel):
+    image: str # base64 string
+
 @app.get("/")
 async def get():
     return FileResponse("static/index.html")
@@ -137,7 +140,7 @@ async def handle_agent_action(action: str, ws_target: WebSocket):
         pass
 
 @app.post("/analyze")
-async def analyze_frame(request: any):
+async def analyze_frame(request: AnalyzeRequest):
     if not client: return {"error": "IA indisponível"}
     image_bytes = base64.b64decode(request.image)
     optimized = _resize_image(image_bytes)
