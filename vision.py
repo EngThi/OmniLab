@@ -119,6 +119,11 @@ def vision_loop():
                 if not frame_queue.full(): frame_queue.put_nowait(frame.copy())
             except: pass
 
+            cv2.imshow("OmniLab Vision", frame)
+            if cv2.waitKey(1) & 0xFF == ord('q'):
+                running = False
+                break
+
     cap.release()
     cv2.destroyAllWindows()
 

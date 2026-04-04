@@ -14,14 +14,24 @@ from dotenv import load_dotenv
 from google import genai
 from google.genai import types
 from playwright.async_api import async_playwright
-from playwright_stealth import stealth
+from contextlib import asynccontextmanager
 
 load_dotenv()
 api_key = os.getenv("GEMINI_API_KEY")
 client = genai.Client(api_key=api_key) if api_key else None
 model_id = 'gemini-2.0-flash'
 
-app = FastAPI()
+from playwright_stealth import Stealth
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup: Inicia o browser para aquecer
+    asyncio.create_task(browser_agent.start())
+    yield
+    # Shutdown: Para o browser
+    await browser_agent.stop()
+
+app = FastAPI(lifespan=lifespan)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # ── BROWSER AGENT BRIDGE ──
@@ -43,7 +53,8 @@ class OmniBrowser:
             user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
         )
         self.page = await self.context.new_page()
-        await stealth(self.page)
+        # Corrigindo a chamada do stealth para Playwright
+        await Stealth().apply_stealth_async(self.page)
         self.active = True
         print("🌐 [OmniBrowser] Agent Started Successfully")
 
@@ -57,8 +68,10 @@ class OmniBrowser:
         return await self.page.screenshot(type="jpeg", quality=60)
 
     async def stop(self):
-        if self.browser: await self.browser.close()
-        if self.playwright: await self.playwright.stop()
+        try:
+            if self.browser: await self.browser.close()
+            if self.playwright: await self.playwright.stop()
+        except: pass
         self.active = False
 
 browser_agent = OmniBrowser()
@@ -126,7 +139,8 @@ async def websocket_vision(ws: WebSocket):
             
             # ── LÓGICA DE AÇÃO DISPARADA POR GESTO ──
             if data.get("type") == "action":
-                await handle_agent_action(data["action"], h)
+                for hud in list(hud_connections):
+                    await handle_agent_action(data["action"], hud)
     except WebSocketDisconnect:
         vision_connections.discard(ws)
 
@@ -142,32 +156,31 @@ async def handle_agent_action(action: str, ws_target: WebSocket):
 @app.post("/analyze")
 async def analyze_frame(request: AnalyzeRequest):
     if not client: return {"error": "IA indisponível"}
-    image_bytes = base64.b64decode(request.image)
-    optimized = _resize_image(image_bytes)
+    try:
+        image_bytes = base64.b64decode(request.image)
+        optimized = _resize_image(image_bytes)
+    except:
+        return {"error": "Formato de imagem inválido"}
+
     img_hash = hashlib.md5(optimized).hexdigest()
     
     cached = _cache_get(img_hash)
     if cached: return {"status": "success", "text": cached, "cached": True}
 
-    response = await asyncio.to_thread(
-        client.models.generate_content,
-        model=model_id,
-        contents=[types.Content(role="user", parts=[
-            types.Part.from_bytes(mime_type="image/jpeg", data=optimized),
-            types.Part.from_text(text="Descreva a imagem de forma técnica e curta.")
-        ])]
-    )
-    _cache_set(img_hash, response.text)
-    return {"status": "success", "text": response.text, "cached": False}
+    try:
+        response = await asyncio.to_thread(
+            client.models.generate_content,
+            model=model_id,
+            contents=[types.Content(role="user", parts=[
+                types.Part.from_bytes(mime_type="image/jpeg", data=optimized),
+                types.Part.from_text(text="Descreva a imagem de forma técnica e curta.")
+            ])]
+        )
+        _cache_set(img_hash, response.text)
+        return {"status": "success", "text": response.text, "cached": False}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
 
-@app.on_event("startup")
-async def startup_event():
-    # Inicia o browser no startup para aquecer
-    asyncio.create_task(browser_agent.start())
-
-@app.on_event("shutdown")
-async def shutdown_event():
-    await browser_agent.stop()
 
 if __name__ == "__main__":
     import uvicorn
