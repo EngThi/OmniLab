@@ -4,6 +4,7 @@ import asyncio
 import base64
 import os
 import io
+import json
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -12,44 +13,77 @@ from PIL import Image
 from dotenv import load_dotenv
 from google import genai
 from google.genai import types
+from playwright.async_api import async_playwright
+from playwright_stealth import stealth_async
 
-# Carregar variáveis de ambiente e configurar Gemini
 load_dotenv()
 api_key = os.getenv("GEMINI_API_KEY")
-if api_key:
-    client = genai.Client(api_key=api_key)
-    model_id = 'gemini-2.0-flash' # Atualizado para a versão estável mais rápida
-else:
-    client = None
+client = genai.Client(api_key=api_key) if api_key else None
+model_id = 'gemini-2.0-flash'
 
 app = FastAPI()
-
-# Servir arquivos estáticos
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
-# ── OTIMIZAÇÃO 2: Estruturas de Dados Eficientes (O(1)) ──
+# ── BROWSER AGENT BRIDGE ──
+class OmniBrowser:
+    def __init__(self):
+        self.playwright = None
+        self.browser = None
+        self.context = None
+        self.page = None
+        self.active = False
+
+    async def start(self):
+        if self.active: return
+        self.playwright = await async_playwright().start()
+        # Usamos user_data_dir para persistir sessão (cookies, login)
+        self.browser = await self.playwright.chromium.launch(headless=True) # Mudar para False se quiser ver
+        self.context = await self.browser.new_context(
+            viewport={'width': 1280, 'height': 720},
+            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+        )
+        self.page = await self.context.new_page()
+        await stealth_async(self.page)
+        self.active = True
+        print("🌐 [OmniBrowser] Agent Started Successfully")
+
+    async def navigate(self, url: str):
+        if not self.active: await self.start()
+        await self.page.goto(url, wait_until="networkidle")
+        return await self.page.title()
+
+    async def get_screenshot(self):
+        if not self.page: return None
+        return await self.page.screenshot(type="jpeg", quality=60)
+
+    async def stop(self):
+        if self.browser: await self.browser.close()
+        if self.playwright: await self.playwright.stop()
+        self.active = False
+
+browser_agent = OmniBrowser()
+
+# Conexões
 hud_connections: set[WebSocket] = set()
 vision_connections: set[WebSocket] = set()
 
-# ── OTIMIZAÇÃO 1: Application-level Caching (MD5) ──
+# Cache
 _cache: dict[str, tuple[str, float]] = {}
-CACHE_TTL = 30  # Tempo de vida do cache em segundos
+CACHE_TTL = 30 
 
 def _cache_get(key: str) -> str | None:
     if key in _cache:
         val, ts = _cache[key]
-        if time.time() - ts < CACHE_TTL:
-            return val
+        if time.time() - ts < CACHE_TTL: return val
         del _cache[key]
     return None
 
 def _cache_set(key: str, val: str):
-    if len(_cache) > 200:   # Evict oldest if cache grows too large
+    if len(_cache) > 200:
         oldest = min(_cache, key=lambda k: _cache[k][1])
         del _cache[oldest]
     _cache[key] = (val, time.time())
 
-# ── OTIMIZAÇÃO 3: Optimize Asset Sizes (Redimensionamento) ──
 def _resize_image(data: bytes, max_size: int = 512) -> bytes:
     img = Image.open(io.BytesIO(data)).convert("RGB")
     img.thumbnail((max_size, max_size), Image.LANCZOS)
@@ -57,99 +91,80 @@ def _resize_image(data: bytes, max_size: int = 512) -> bytes:
     img.save(buf, format="JPEG", quality=70, optimize=True)
     return buf.getvalue()
 
-class AnalyzeRequest(BaseModel):
-    image: str # base64 string
-
 @app.get("/")
 async def get():
     return FileResponse("static/index.html")
 
 @app.websocket("/ws/hud")
-async def websocket_hud(websocket: WebSocket):
-    await websocket.accept()
-    hud_connections.add(websocket)
+async def websocket_hud(ws: WebSocket):
+    await ws.accept()
+    hud_connections.add(ws)
     try:
         while True:
-            data = await websocket.receive_json()
+            data = await ws.receive_json()
             if data.get("type") == "command":
-                # Fazemos uma cópia da lista para iterar com segurança
-                for vision in list(vision_connections):
-                    try:
-                        await vision.send_json(data)
-                    except:
-                        vision_connections.discard(vision)
+                for v in list(vision_connections):
+                    try: await v.send_json(data)
+                    except: vision_connections.discard(v)
     except WebSocketDisconnect:
-        hud_connections.discard(websocket)
+        hud_connections.discard(ws)
 
 @app.websocket("/ws/vision")
-async def websocket_vision(websocket: WebSocket):
-    await websocket.accept()
-    vision_connections.add(websocket)
+async def websocket_vision(ws: WebSocket):
+    await ws.accept()
+    vision_connections.add(ws)
     try:
         while True:
-            data = await websocket.receive_json()
-            for hud in list(hud_connections):
-                try:
-                    await hud.send_json(data)
-                except:
-                    hud_connections.discard(hud)
+            data = await ws.receive_json()
+            # Broadcast para o HUD
+            for h in list(hud_connections):
+                try: await h.send_json(data)
+                except: hud_connections.discard(h)
+            
+            # ── LÓGICA DE AÇÃO DISPARADA POR GESTO ──
+            if data.get("type") == "action":
+                await handle_agent_action(data["action"], h)
     except WebSocketDisconnect:
-        vision_connections.discard(websocket)
+        vision_connections.discard(ws)
+
+async def handle_agent_action(action: str, ws_target: WebSocket):
+    print(f"🎬 [Action] Triggered: {action}")
+    if action == "BROWSER_SEARCH_RECIPE":
+        title = await browser_agent.navigate("https://www.google.com/search?q=receitas+rapidas+homes")
+        await ws_target.send_json({"type": "status_update", "message": f"SEARCHING: {title}"})
+    elif action == "HOMES_SYNC":
+        # Gatilho para o seu HOMES-Engine
+        pass
 
 @app.post("/analyze")
-async def analyze_frame(request: AnalyzeRequest):
-    if not client:
-        return {"error": "Gemini API key not configured", "text": "IA indisponível", "cached": False}
+async def analyze_frame(request: any):
+    if not client: return {"error": "IA indisponível"}
+    image_bytes = base64.b64decode(request.image)
+    optimized = _resize_image(image_bytes)
+    img_hash = hashlib.md5(optimized).hexdigest()
     
-    try:
-        image_bytes = base64.b64decode(request.image)
-        
-        # OTM 3: Reduz tamanho do payload antes de processar/enviar
-        optimized_image = _resize_image(image_bytes)
-        img_hash = hashlib.md5(optimized_image).hexdigest()
+    cached = _cache_get(img_hash)
+    if cached: return {"status": "success", "text": cached, "cached": True}
 
-        # OTM 1: Verifica cache antes de chamar a API dispendiosa
-        cached_response = _cache_get(img_hash)
-        if cached_response:
-            return {
-                "status": "success", 
-                "text": cached_response, 
-                "cached": True, 
-                "cache_hit": img_hash[:8]
-            }
+    response = await asyncio.to_thread(
+        client.models.generate_content,
+        model=model_id,
+        contents=[types.Content(role="user", parts=[
+            types.Part.from_bytes(mime_type="image/jpeg", data=optimized),
+            types.Part.from_text(text="Descreva a imagem de forma técnica e curta.")
+        ])]
+    )
+    _cache_set(img_hash, response.text)
+    return {"status": "success", "text": response.text, "cached": False}
 
-        # Configuração de Pensamento (removido para gemini-2.0-flash padrão para maior velocidade)
-        response = await asyncio.to_thread(
-            client.models.generate_content,
-            model=model_id,
-            contents=[
-                types.Content(role="user", parts=[
-                    types.Part.from_bytes(mime_type="image/jpeg", data=optimized_image),
-                    types.Part.from_text(text="Descreva o que você vê nesta imagem de forma curta e técnica para um HUD de assistente IA.")
-                ])
-            ]
-        )
-        
-        result_text = response.text
-        _cache_set(img_hash, result_text)
-        
-        return {"status": "success", "text": result_text, "cached": False}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+@app.on_event("startup")
+async def startup_event():
+    # Inicia o browser no startup para aquecer
+    asyncio.create_task(browser_agent.start())
 
-@app.post("/ingest/gesture")
-async def ingest_gesture(data: dict):
-    disconnected = set()
-    for connection in list(hud_connections):
-        try:
-            await connection.send_json(data)
-        except:
-            disconnected.add(connection)
-    
-    for conn in disconnected:
-        hud_connections.discard(conn)
-            
-    return {"status": "sent", "active_connections": len(hud_connections)}
+@app.on_event("shutdown")
+async def shutdown_event():
+    await browser_agent.stop()
 
 if __name__ == "__main__":
     import uvicorn

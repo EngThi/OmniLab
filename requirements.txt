@@ -10,3 +10,5 @@ python-dotenv
 pytest
 pytest-asyncio
 httpx
+playwright
+playwright-stealth
