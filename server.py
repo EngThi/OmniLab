@@ -5,6 +5,7 @@ import base64
 import os
 import io
 import json
+import itertools
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -17,8 +18,20 @@ from playwright.async_api import async_playwright
 from contextlib import asynccontextmanager
 
 load_dotenv()
+
+# ── CONFIGURAÇÃO DE DEMO / MOCKS ──
+DEMO_MODE = os.getenv("DEMO_MODE", "false").lower() == "true"
+
+DEMO_RESPONSES = [
+    "HAND DETECTED. INDEX FINGER EXTENDED — GESTURE: POINT. CONFIDENCE: 94%",
+    "CLOSED FIST DETECTED — GESTURE: STOP. ACTIVATING NEURAL LOCK.",
+    "OPEN PALM DETECTED — GESTURE: OPEN. SYSTEM STANDBY.",
+    "TWO FINGERS EXTENDED — GESTURE: PEACE. HUD MODE: CREATIVE.",
+]
+_response_cycle = itertools.cycle(DEMO_RESPONSES)
+
 api_key = os.getenv("GEMINI_API_KEY")
-client = genai.Client(api_key=api_key) if api_key else None
+client = genai.Client(api_key=api_key) if api_key and not DEMO_MODE else None
 model_id = 'gemini-3.1-flash-lite-preview'
 
 from playwright_stealth import Stealth
@@ -181,7 +194,19 @@ cognitive_memory = []
 
 @app.post("/analyze")
 async def analyze_frame(request: AnalyzeRequest):
-    global cognitive_memory
+    global cognitive_memory, _response_cycle
+    
+    # ── LÓGICA DE MOCK / DEMO ──
+    if DEMO_MODE:
+        await asyncio.sleep(0.6) # Simula latência de rede/processamento
+        mock_text = next(_response_cycle)
+        return {
+            "status": "success", 
+            "text": mock_text, 
+            "cached": False, 
+            "demo": True
+        }
+
     if not client: return {"error": "IA indisponível"}
     try:
         image_bytes = base64.b64decode(request.image)
