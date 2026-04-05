@@ -36,10 +36,36 @@
             }
             @keyframes scan { from {top: 0;} to {top: 100%;} }
             
-            #diag-panel {
+            /* Painel de Diagnóstico e Controle no Canto Direito */
+            #right-bottom-container {
                 position: absolute; bottom: 20px; right: 20px;
-                font-size: 0.7em; text-align: right;
-                border-right: 2px solid var(--text-color); padding-right: 10px;
+                display: flex; flex-direction: column; align-items: flex-end;
+                pointer-events: auto;
+            }
+
+            #control-panel {
+                display: flex; gap: 10px; margin-bottom: 15px;
+            }
+
+            .cmd-btn {
+                background: rgba(0, 242, 255, 0.1);
+                border: 1px solid var(--text-color);
+                color: var(--text-color);
+                padding: 8px 12px;
+                font-family: 'Courier New', monospace;
+                font-size: 0.8em;
+                cursor: pointer;
+                transition: 0.2s;
+                text-transform: uppercase;
+            }
+            .cmd-btn:hover { background: var(--text-color); color: #000; box-shadow: 0 0 15px var(--glow-color); }
+            .cmd-btn.warn:hover { background: var(--warn-color); border-color: var(--warn-color); }
+
+            #diag-panel {
+                font-size: 0.75em; text-align: right;
+                border-right: 3px solid var(--text-color); padding-right: 15px;
+                background: rgba(0,0,0,0.3);
+                min-width: 200px;
             }
 
             #log-console {
@@ -64,31 +90,43 @@
                 padding: 5px 10px; cursor: pointer; z-index: 100;
             }
 
+            .scanning { animation: pulse 1s infinite !important; }
             @keyframes pulse {
                 0% { box-shadow: inset 0 0 50px rgba(0, 242, 255, 0); }
                 50% { box-shadow: inset 0 0 150px rgba(0, 242, 255, 0.3); }
                 100% { box-shadow: inset 0 0 50px rgba(0, 242, 255, 0); }
             }
-            .scanning { animation: pulse 1s infinite !important; }
         </style>
     </head>
     <body class="dark-mode">
         <button id="mode-toggle">THEME_SYNC</button>
         <div id="ui-layer">
             <div class="scanline"></div>
+            
             <div style="display: flex; justify-content: space-between; align-items: flex-start;">
                 <div>
-                    <h2 style="margin: 0;">OMNILAB OS // v2.1.0</h2>
+                    <h2 style="margin: 0;">OMNILAB OS // v2.1.5</h2>
                     <div id="status">SYSTEM: STANDBY</div>
                     <div id="gesture-hint" style="font-size: 0.6em; color: var(--accent-color); opacity: 0.7;">PINCH_HOLD: DEEP_SCAN</div>
-                </div>
-                <div id="diag-panel">
-                    <div id="fps">FPS: --</div>
-                    <div id="model">CORE: GEMINI-3-THINKING</div>
                 </div>
             </div>
 
             <div id="log-console"></div>
+
+            <div id="right-bottom-container">
+                <!-- Painel de Botões -->
+                <div id="control-panel">
+                    <button class="cmd-btn" onclick="sendCommand('analyze')">Analyze</button>
+                    <button class="cmd-btn" onclick="sendCommand('analyze_and_search')">Search</button>
+                    <button class="cmd-btn warn" onclick="sendCommand('close_browser')">Terminate</button>
+                </div>
+                <!-- Painel de Diagnóstico -->
+                <div id="diag-panel">
+                    <div id="fps">FPS: 00</div>
+                    <div id="mem-status" style="color: var(--accent-color); margin: 4px 0;">MEM: BUFFER_SYNC_ACTIVE</div>
+                    <div id="model">CORE: GEMINI-3.1-LITE</div>
+                </div>
+            </div>
         </div>
 
         <script>
@@ -125,6 +163,13 @@
                 if (logConsole.childNodes.length > 10) logConsole.lastChild.remove();
             }
 
+            function sendCommand(cmd) {
+                if (ws && ws.readyState === WebSocket.OPEN) {
+                    addLog(`MANUAL_CMD: ${cmd.toUpperCase()}`, "var(--accent-color)");
+                    ws.send(JSON.stringify({type: 'command', command: cmd}));
+                }
+            }
+
             function speak(text) {
                 if ('speechSynthesis' in window) {
                     window.speechSynthesis.cancel();
@@ -136,36 +181,22 @@
             }
 
             let ws;
-            let demoInterval;
             function connect() {
                 ws = new WebSocket(`ws://${window.location.host}/ws/hud`);
-                ws.onopen = () => {
-                    clearInterval(demoInterval);
-                    addLog("CONNECTION_ESTABLISHED", "var(--accent-color)");
-                };
+                ws.onopen = () => addLog("CONNECTION_ESTABLISHED", "var(--accent-color)");
                 ws.onmessage = (event) => {
                     const data = JSON.parse(event.data);
-                    
                     if (data.type === 'gesture') {
                         updateHUD(data);
-                    } 
-                    else if (data.type === 'status_update') {
+                    } else if (data.type === 'status_update') {
                         statusEl.innerText = data.message;
                         addLog(data.message, 'var(--warn-color)');
-                        if (data.message === 'INITIATING_GESTURE_SCAN') {
-                            document.body.classList.add('scanning');
-                        }
-                    }
-                    else if (data.type === 'analysis_result') {
-                        document.body.classList.remove('scanning');
+                    } else if (data.type === 'analysis_result') {
                         addLog(`ANALYSIS: ${data.text}`, '#fff');
                         speak(data.text);
                     }
                 };
-                ws.onclose = () => {
-                    setTimeout(connect, 2000);
-                    startDemoMode();
-                };
+                ws.onclose = () => setTimeout(connect, 2000);
             }
 
             function updateHUD(data) {
@@ -174,7 +205,7 @@
                 cursorGroup.position.x += (targetX - cursorGroup.position.x) * 0.3;
                 cursorGroup.position.y += (targetY - cursorGroup.position.y) * 0.3;
                 
-                if (data.fps) fpsEl.innerText = `FPS: ${data.fps}`;
+                if (data.fps !== undefined) fpsEl.innerText = `FPS: ${data.fps}`;
                 
                 if (data.pinch_progress > 0) {
                     const p = data.pinch_progress;
@@ -189,22 +220,29 @@
                 }
             }
 
-            function startDemoMode() {
-                addLog("VISION_OFFLINE: ENTERING_DEMO_MODE", "var(--warn-color)");
-                let t = 0;
-                demoInterval = setInterval(() => {
-                    t += 0.05;
-                    const demoData = {
-                        x: 0.5 + Math.sin(t) * 0.3,
-                        y: 0.5 + Math.cos(t * 0.7) * 0.2,
-                        pinch_progress: (Math.sin(t * 0.5) > 0.8) ? (Math.sin(t * 0.5) - 0.8) * 5 : 0,
-                        fps: 60
-                    };
-                    updateHUD(demoData);
-                }, 50);
-            }
-
             connect();
+
+            // RECONHECIMENTO DE VOZ (JARVIS MODE)
+            window.SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (window.SpeechRecognition) {
+                const recognition = new SpeechRecognition();
+                recognition.continuous = true;
+                recognition.interimResults = true;
+                recognition.lang = 'pt-BR';
+                recognition.onresult = (event) => {
+                    for (let i = event.resultIndex; i < event.results.length; ++i) {
+                        if (event.results[i].isFinal) {
+                            const transcript = event.results[i][0].transcript.toLowerCase().trim();
+                            addLog(`USER: ${transcript}`);
+                            if (transcript.includes("analisar")) sendCommand('analyze');
+                            else if (transcript.includes("pesquisar")) sendCommand('analyze_and_search');
+                            else if (transcript.includes("fechar")) sendCommand('close_browser');
+                        }
+                    }
+                };
+                recognition.onend = () => recognition.start();
+                try { recognition.start(); } catch(e) {}
+            }
 
             function animate() {
                 requestAnimationFrame(animate);
