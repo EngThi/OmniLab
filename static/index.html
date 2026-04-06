@@ -181,12 +181,24 @@
             }
 
             let ws;
+            let demoInterval = null;
+            let lastDataTime = Date.now();
+
             function connect() {
                 ws = new WebSocket(`ws://${window.location.host}/ws/hud`);
-                ws.onopen = () => addLog("CONNECTION_ESTABLISHED", "var(--accent-color)");
+                ws.onopen = () => {
+                    addLog("CONNECTION_ESTABLISHED", "var(--accent-color)");
+                    checkDataFlow();
+                };
                 ws.onmessage = (event) => {
                     const data = JSON.parse(event.data);
                     if (data.type === 'gesture') {
+                        lastDataTime = Date.now();
+                        if (demoInterval) {
+                            clearInterval(demoInterval);
+                            demoInterval = null;
+                            addLog("VISION_SIGNAL_RESTORED", "var(--accent-color)");
+                        }
                         updateHUD(data);
                     } else if (data.type === 'status_update') {
                         statusEl.innerText = data.message;
@@ -196,28 +208,34 @@
                         speak(data.text);
                     }
                 };
-                ws.onclose = () => setTimeout(connect, 2000);
+                ws.onclose = () => {
+                    setTimeout(connect, 2000);
+                    if (!demoInterval) startDemoMode();
+                };
             }
 
-            function updateHUD(data) {
-                const targetX = (data.x - 0.5) * 30;
-                const targetY = (0.5 - data.y) * 20;
-                cursorGroup.position.x += (targetX - cursorGroup.position.x) * 0.3;
-                cursorGroup.position.y += (targetY - cursorGroup.position.y) * 0.3;
-                
-                if (data.fps !== undefined) fpsEl.innerText = `FPS: ${data.fps}`;
-                
-                if (data.pinch_progress > 0) {
-                    const p = data.pinch_progress;
-                    ringMat.color.setRGB(p, 1-p, 1);
-                    cursorGroup.scale.set(1 - (p*0.4), 1 - (p*0.4), 1);
-                    statusEl.innerText = `SCAN_LOADING: ${Math.round(p*100)}%`;
-                } else {
-                    const isLight = document.body.classList.contains('light-mode');
-                    ringMat.color.setHex(isLight ? 0x0066cc : 0x00f2ff);
-                    cursorGroup.scale.set(1, 1, 1);
-                    if (statusEl.innerText.includes("SCAN_LOADING")) statusEl.innerText = "SYSTEM: TRACKING";
-                }
+            function checkDataFlow() {
+                setInterval(() => {
+                    if (Date.now() - lastDataTime > 2000 && !demoInterval && ws.readyState === WebSocket.OPEN) {
+                        startDemoMode();
+                    }
+                }, 1000);
+            }
+
+            function startDemoMode() {
+                if (demoInterval) return;
+                addLog("VISION_OFFLINE: ENTERING_DEMO_MODE", "var(--warn-color)");
+                let t = 0;
+                demoInterval = setInterval(() => {
+                    t += 0.05;
+                    const demoData = {
+                        x: 0.5 + Math.sin(t) * 0.3,
+                        y: 0.5 + Math.cos(t * 0.7) * 0.2,
+                        pinch_progress: (Math.sin(t * 0.5) > 0.8) ? (Math.sin(t * 0.5) - 0.8) * 5 : 0,
+                        fps: 60
+                    };
+                    updateHUD(demoData);
+                }, 50);
             }
 
             connect();
