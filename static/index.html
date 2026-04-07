@@ -208,36 +208,76 @@
             let demoInterval = null;
             let lastDataTime = Date.now();
 
-            function connect() {
-                ws = new WebSocket(`ws://${window.location.host}/ws/hud`);
-                ws.onopen = () => {
-                    addLog("CONNECTION_ESTABLISHED", "var(--accent-color)");
-                    checkDataFlow();
-                };
-                ws.onmessage = (event) => {
-                    const data = JSON.parse(event.data);
-                    if (data.type === 'gesture') {
-                        lastDataTime = Date.now();
-                        if (demoInterval) {
-                            clearInterval(demoInterval);
-                            demoInterval = null;
-                            document.getElementById('demo-banner')?.remove();
-                            addLog("VISION_SIGNAL_RESTORED", "var(--accent-color)");
+            // VOICE RECOGNITION (JARVIS MODE)
+            window.SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (window.SpeechRecognition) {
+                const recognition = new SpeechRecognition();
+                recognition.continuous = true;
+                recognition.interimResults = true;
+                recognition.lang = 'en-US'; // Changed to English for Reviewer
+                recognition.onresult = (event) => {
+                    for (let i = event.resultIndex; i < event.results.length; ++i) {
+                        if (event.results[i].isFinal) {
+                            const transcript = event.results[i][0].transcript.toLowerCase().trim();
+                            addLog(`USER_VOICE: ${transcript}`);
+                            if (transcript.includes("analyze")) sendCommand('analyze');
+                            else if (transcript.includes("search")) sendCommand('analyze_and_search');
+                            else if (transcript.includes("close") || transcript.includes("terminate")) sendCommand('close_browser');
                         }
-                        updateHUD(data);
-                    } else if (data.type === 'status_update') {
-                        statusEl.innerText = data.message;
-                        addLog(data.message, 'var(--warn-color)');
-                    } else if (data.type === 'analysis_result') {
-                        addLog(`ANALYSIS: ${data.text}`, '#fff');
-                        speak(data.text);
                     }
                 };
-                ws.onclose = () => {
-                    setTimeout(connect, 2000);
-                    if (!demoInterval) startDemoMode();
-                };
+                recognition.onend = () => recognition.start();
+                try { recognition.start(); } catch(e) {}
             }
+
+            function animate() {
+                requestAnimationFrame(animate);
+                innerRing.rotation.z += 0.05;
+                outerRing.rotation.z -= 0.02;
+                renderer.render(scene, camera);
+            }
+            animate();
+
+            function connect() {
+                try {
+                    ws = new WebSocket(`ws://${window.location.host}/ws/hud`);
+                    ws.onopen = () => {
+                        addLog("CONNECTION_ESTABLISHED", "var(--accent-color)");
+                        checkDataFlow();
+                    };
+                    ws.onmessage = (event) => {
+                        const data = JSON.parse(event.data);
+                        if (data.type === 'gesture') {
+                            lastDataTime = Date.now();
+                            if (demoInterval) {
+                                clearInterval(demoInterval);
+                                demoInterval = null;
+                                document.getElementById('demo-banner')?.remove();
+                                addLog("VISION_SIGNAL_RESTORED", "var(--accent-color)");
+                            }
+                            updateHUD(data);
+                        } else if (data.type === 'status_update') {
+                            statusEl.innerText = data.message;
+                            addLog(data.message, 'var(--warn-color)');
+                        } else if (data.type === 'analysis_result') {
+                            addLog(`ANALYSIS: ${data.text}`, '#fff');
+                            speak(data.text);
+                        }
+                    };
+                    ws.onclose = () => {
+                        setTimeout(connect, 2000);
+                        if (!demoInterval) startDemoMode();
+                    };
+                    ws.onerror = () => {
+                        if (!demoInterval) startDemoMode();
+                    };
+                } catch (e) {
+                    console.warn("WebSocket Connection Failed (Possible Mixed Content). Entering Demo Mode.");
+                    if (!demoInterval) startDemoMode();
+                }
+            }
+
+            connect();
 
             function checkDataFlow() {
                 setInterval(() => {
@@ -299,38 +339,6 @@
                     updateHUD(fakeData);
                 }
             });
-
-            connect();
-
-            // VOICE RECOGNITION (JARVIS MODE)
-            window.SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-            if (window.SpeechRecognition) {
-                const recognition = new SpeechRecognition();
-                recognition.continuous = true;
-                recognition.interimResults = true;
-                recognition.lang = 'en-US';
-                recognition.onresult = (event) => {
-                    for (let i = event.resultIndex; i < event.results.length; ++i) {
-                        if (event.results[i].isFinal) {
-                            const transcript = event.results[i][0].transcript.toLowerCase().trim();
-                            addLog(`USER_VOICE: ${transcript}`);
-                            if (transcript.includes("analyze")) sendCommand('analyze');
-                            else if (transcript.includes("search")) sendCommand('analyze_and_search');
-                            else if (transcript.includes("close") || transcript.includes("terminate")) sendCommand('close_browser');
-                        }
-                    }
-                };
-                recognition.onend = () => recognition.start();
-                try { recognition.start(); } catch(e) {}
-            }
-
-            function animate() {
-                requestAnimationFrame(animate);
-                innerRing.rotation.z += 0.05;
-                outerRing.rotation.z -= 0.02;
-                renderer.render(scene, camera);
-            }
-            animate();
 
             document.getElementById('mode-toggle').onclick = () => document.body.classList.toggle('light-mode');
             window.onresize = () => {
