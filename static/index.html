@@ -107,20 +107,20 @@
                 <div>
                     <h2 style="margin: 0;">OMNILAB OS // v2.1.5</h2>
                     <div id="status">SYSTEM: STANDBY</div>
-                    <div id="gesture-hint" style="font-size: 0.6em; color: var(--accent-color); opacity: 0.7;">PINCH_HOLD: DEEP_SCAN</div>
+                    <div id="gesture-hint" style="font-size: 0.6em; color: var(--accent-color); opacity: 0.7;">PINCH_HOLD: DEEP_SCAN // MOUSE_INTERACT: ENABLED</div>
                 </div>
             </div>
 
             <div id="log-console"></div>
 
             <div id="right-bottom-container">
-                <!-- Painel de Botões -->
+                <!-- Button Panel -->
                 <div id="control-panel">
                     <button class="cmd-btn" onclick="sendCommand('analyze')">Analyze</button>
                     <button class="cmd-btn" onclick="sendCommand('analyze_and_search')">Search</button>
                     <button class="cmd-btn warn" onclick="sendCommand('close_browser')">Terminate</button>
                 </div>
-                <!-- Painel de Diagnóstico -->
+                <!-- Diagnosis Panel -->
                 <div id="diag-panel">
                     <div id="fps">FPS: 00</div>
                     <div id="mem-status" style="color: var(--accent-color); margin: 4px 0;">MEM: BUFFER_SYNC_ACTIVE</div>
@@ -167,6 +167,29 @@
                 if (ws && ws.readyState === WebSocket.OPEN) {
                     addLog(`MANUAL_CMD: ${cmd.toUpperCase()}`, "var(--accent-color)");
                     ws.send(JSON.stringify({type: 'command', command: cmd}));
+                } else if (demoInterval) {
+                    // MOCK EXECUTION FOR REVIEWER (NO SERVER)
+                    addLog(`MOCK_CMD: ${cmd.toUpperCase()}`, "var(--warn-color)");
+                    
+                    if (cmd === 'analyze' || cmd === 'analyze_and_search') {
+                        addLog("PROXY: INITIALIZING_PLAYWRIGHT_STEALTH...", "var(--text-color)");
+                        setTimeout(() => {
+                            if (cmd === 'analyze_and_search') addLog("WEB: SEARCHING_FOR_ENVIRONMENT_DATA...", "var(--accent-color)");
+                            setTimeout(() => {
+                                const mocks = [
+                                    "IDENTIFIED: COMMUNICATION HUB. STATUS: OPERATIONAL.",
+                                    "TARGET DETECTED IN PERIMETER. CORRELATING NETWORK DATA.",
+                                    "SURFACE SCAN COMPLETE. NO THREATS DETECTED IN SECTOR.",
+                                    "SEARCH DATA: 3 IOT DEVICES FOUND IN RANGE."
+                                ];
+                                const result = mocks[Math.floor(Math.random() * mocks.length)];
+                                addLog(`ANALYSIS: ${result}`, "#fff");
+                                speak(result);
+                            }, 2000);
+                        }, 1000);
+                    } else if (cmd === 'close_browser') {
+                        addLog("TERMINATING_VIRTUAL_SESSION...", "var(--warn-color)");
+                    }
                 }
             }
 
@@ -174,10 +197,9 @@
                 if ('speechSynthesis' in window) {
                     window.speechSynthesis.cancel();
                     const utterance = new SpeechSynthesisUtterance(text);
-                    // Detect if English is needed (Demo or tactical English results)
-                    utterance.lang = (demoInterval || text.toUpperCase() === text) ? 'en-US' : 'pt-BR';
+                    utterance.lang = 'en-US';
                     utterance.rate = 1.2;
-                    utterance.pitch = 0.85; // Slightly deeper, more JARVIS-like
+                    utterance.pitch = 0.85; 
                     window.speechSynthesis.speak(utterance);
                 }
             }
@@ -219,7 +241,7 @@
 
             function checkDataFlow() {
                 setInterval(() => {
-                    if (Date.now() - lastDataTime > 2000 && !demoInterval && ws.readyState === WebSocket.OPEN) {
+                    if (Date.now() - lastDataTime > 2000 && !demoInterval) {
                         startDemoMode();
                     }
                 }, 1000);
@@ -239,36 +261,62 @@
                 let t = 0;
                 demoInterval = setInterval(() => {
                     t += 0.05;
-                    const demoData = {
-                        x: 0.5 + Math.sin(t) * 0.3,
-                        y: 0.5 + Math.cos(t * 0.7) * 0.2,
-                        pinch_progress: (Math.sin(t * 0.5) > 0.8) ? (Math.sin(t * 0.5) - 0.8) * 5 : 0,
-                        fps: 60
-                    };
-                    updateHUD(demoData);
-                    
-                    // Random tactical ping simulation
+                    // Background tactical ping simulation
                     if (Math.random() > 0.99) addLog("BACKGROUND_SCAN: NOMINAL", "rgba(0,242,255,0.3)");
                 }, 50);
             }
 
+            function updateHUD(data) {
+                const targetX = (data.x - 0.5) * 30;
+                const targetY = (0.5 - data.y) * 20;
+                cursorGroup.position.x += (targetX - cursorGroup.position.x) * 0.3;
+                cursorGroup.position.y += (targetY - cursorGroup.position.y) * 0.3;
+                
+                if (data.fps) fpsEl.innerText = `FPS: ${data.fps}`;
+                
+                if (data.pinch_progress > 0) {
+                    const p = data.pinch_progress;
+                    ringMat.color.setRGB(p, 1-p, 1);
+                    cursorGroup.scale.set(1 - (p*0.4), 1 - (p*0.4), 1);
+                    statusEl.innerText = `SCAN_LOADING: ${Math.round(p*100)}%`;
+                } else {
+                    const isLight = document.body.classList.contains('light-mode');
+                    ringMat.color.setHex(isLight ? 0x0066cc : 0x00f2ff);
+                    cursorGroup.scale.set(1, 1, 1);
+                    if (statusEl.innerText.includes("SCAN_LOADING")) statusEl.innerText = "SYSTEM: TRACKING";
+                }
+            }
+
+            // MOUSE TRACKING FOR DEMO MODE
+            window.addEventListener('mousemove', (e) => {
+                if (demoInterval) {
+                    const fakeData = {
+                        x: e.clientX / window.innerWidth,
+                        y: e.clientY / window.innerHeight,
+                        fps: 60,
+                        pinch_progress: 0
+                    };
+                    updateHUD(fakeData);
+                }
+            });
+
             connect();
 
-            // RECONHECIMENTO DE VOZ (JARVIS MODE)
+            // VOICE RECOGNITION (JARVIS MODE)
             window.SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
             if (window.SpeechRecognition) {
                 const recognition = new SpeechRecognition();
                 recognition.continuous = true;
                 recognition.interimResults = true;
-                recognition.lang = 'pt-BR';
+                recognition.lang = 'en-US';
                 recognition.onresult = (event) => {
                     for (let i = event.resultIndex; i < event.results.length; ++i) {
                         if (event.results[i].isFinal) {
                             const transcript = event.results[i][0].transcript.toLowerCase().trim();
-                            addLog(`USER: ${transcript}`);
-                            if (transcript.includes("analisar")) sendCommand('analyze');
-                            else if (transcript.includes("pesquisar")) sendCommand('analyze_and_search');
-                            else if (transcript.includes("fechar")) sendCommand('close_browser');
+                            addLog(`USER_VOICE: ${transcript}`);
+                            if (transcript.includes("analyze")) sendCommand('analyze');
+                            else if (transcript.includes("search")) sendCommand('analyze_and_search');
+                            else if (transcript.includes("close") || transcript.includes("terminate")) sendCommand('close_browser');
                         }
                     }
                 };
