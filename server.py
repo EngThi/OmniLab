@@ -19,7 +19,7 @@ from contextlib import asynccontextmanager
 load_dotenv()
 api_key = os.getenv("GEMINI_API_KEY")
 client = genai.Client(api_key=api_key) if api_key else None
-model_id = 'gemini-2.0-flash'
+model_id = 'gemini-3.1-flash-lite'
 
 from playwright_stealth import Stealth
 
