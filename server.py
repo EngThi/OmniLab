@@ -23,10 +23,11 @@ load_dotenv()
 DEMO_MODE = os.getenv("DEMO_MODE", "false").lower() == "true"
 
 DEMO_RESPONSES = [
-    "HAND DETECTED. INDEX FINGER EXTENDED — GESTURE: POINT. CONFIDENCE: 94%",
-    "CLOSED FIST DETECTED — GESTURE: STOP. ACTIVATING NEURAL LOCK.",
-    "OPEN PALM DETECTED — GESTURE: OPEN. SYSTEM STANDBY.",
-    "TWO FINGERS EXTENDED — GESTURE: PEACE. HUD MODE: CREATIVE.",
+    "TACTICAL ANALYSIS: SUBJECT IDENTIFIED. NEURAL LINK STABLE.",
+    "GESTURE RECOGNITION ACTIVE: PINCH DETECTED. LOADING DEEP SCAN.",
+    "ENVIRONMENT SCAN COMPLETE: NO ANOMALIES DETECTED in THE VISUAL FIELD.",
+    "SYSTEM STATUS: ALL CORE MODULES OPERATING WITHIN NOMINAL PARAMETERS.",
+    "THREAT ASSESSMENT: ZERO EXTERNAL RISKS DETECTED. STANDBY MODE.",
 ]
 _response_cycle = itertools.cycle(DEMO_RESPONSES)
 
@@ -194,12 +195,13 @@ cognitive_memory = []
 
 @app.post("/analyze")
 async def analyze_frame(request: AnalyzeRequest):
-    global cognitive_memory, _response_cycle
+    global cognitive_memory, _response_cycle, last_analysis_result
     
     # ── LÓGICA DE MOCK / DEMO ──
     if DEMO_MODE:
-        await asyncio.sleep(0.6) # Simula latência de rede/processamento
+        await asyncio.sleep(0.6) # Simulate thinking
         mock_text = next(_response_cycle)
+        last_analysis_result = mock_text # Update memory for browser search
         return {
             "status": "success", 
             "text": mock_text, 

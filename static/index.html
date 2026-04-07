@@ -174,8 +174,10 @@
                 if ('speechSynthesis' in window) {
                     window.speechSynthesis.cancel();
                     const utterance = new SpeechSynthesisUtterance(text);
-                    utterance.lang = 'pt-BR';
+                    // Detect if English is needed (Demo or tactical English results)
+                    utterance.lang = (demoInterval || text.toUpperCase() === text) ? 'en-US' : 'pt-BR';
                     utterance.rate = 1.2;
+                    utterance.pitch = 0.85; // Slightly deeper, more JARVIS-like
                     window.speechSynthesis.speak(utterance);
                 }
             }
@@ -197,6 +199,7 @@
                         if (demoInterval) {
                             clearInterval(demoInterval);
                             demoInterval = null;
+                            document.getElementById('demo-banner')?.remove();
                             addLog("VISION_SIGNAL_RESTORED", "var(--accent-color)");
                         }
                         updateHUD(data);
@@ -225,6 +228,14 @@
             function startDemoMode() {
                 if (demoInterval) return;
                 addLog("VISION_OFFLINE: ENTERING_DEMO_MODE", "var(--warn-color)");
+                
+                // Add Visual Banner for Reviewer
+                const banner = document.createElement('div');
+                banner.id = 'demo-banner';
+                banner.style = "position:absolute; top:10px; left:50%; transform:translateX(-50%); color:var(--warn-color); font-size:0.8em; border:1px solid var(--warn-color); padding:5px 20px; background:rgba(255,0,255,0.1); z-index:1000;";
+                banner.innerText = "DEMO_MODE_ACTIVE // SIMULATED_DATA";
+                document.body.appendChild(banner);
+
                 let t = 0;
                 demoInterval = setInterval(() => {
                     t += 0.05;
@@ -235,6 +246,9 @@
                         fps: 60
                     };
                     updateHUD(demoData);
+                    
+                    // Random tactical ping simulation
+                    if (Math.random() > 0.99) addLog("BACKGROUND_SCAN: NOMINAL", "rgba(0,242,255,0.3)");
                 }, 50);
             }
 
