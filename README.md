@@ -49,7 +49,7 @@ Open `http://localhost:8000` and allow camera access.
 | Layer | Tech |
 |---|---|
 | Vision | OpenCV + MediaPipe Tasks |
-| AI | Gemini 1.5 Flash |
+| AI | Gemini 3.1 Flash-Lite|
 | Browser agent | Playwright (Chromium) |
 | Backend | Python + FastAPI + WebSocket |
 | Frontend | Three.js + vanilla JS |
