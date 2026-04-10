@@ -6,6 +6,7 @@ import os
 import io
 import json
 import itertools
+import subprocess
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -16,6 +17,10 @@ from google import genai
 from google.genai import types
 from playwright.async_api import async_playwright
 from contextlib import asynccontextmanager
+
+# MCP Imports
+from mcp import ClientSession, StdioServerParameters
+from mcp.client.stdio import stdio_client
 
 load_dotenv()
 
@@ -36,60 +41,66 @@ model_id = 'gemini-3.1-flash-lite-preview'
 
 from playwright_stealth import Stealth
 
+# ── OMNI-AGENT MCP BRIDGE (Sprint Jr 2h) ──
+class McpAgentBridge:
+    def __init__(self):
+        self.session: ClientSession = None
+        self.exit_stack = None
+        self._active = False
+
+    async def start(self):
+        if self._active: return
+        print("🚀 [MCP] Initializing Playwright MCP Server...")
+        
+        # Parâmetros para rodar o servidor oficial da Microsoft
+        server_params = StdioServerParameters(
+            command="npx",
+            args=["-y", "@playwright/mcp@latest"],
+            env=os.environ.copy()
+        )
+        
+        # Usamos um contexto assíncrono para manter a conexão stdio viva
+        self.exit_stack = asyncio.ExitStack()
+        read_stream, write_stack = await self.exit_stack.enter_async_context(stdio_client(server_params))
+        self.session = await self.exit_stack.enter_async_context(ClientSession(read_stream, write_stack))
+        
+        # Inicializa o protocolo
+        await self.session.initialize()
+        self._active = True
+        print("✅ [MCP] Agent Connected to Playwright Tools")
+
+    async def list_tools(self):
+        if not self._active: await self.start()
+        tools = await self.session.list_tools()
+        return tools
+
+    async def call_tool(self, name: str, arguments: dict):
+        if not self._active: await self.start()
+        print(f"🛠️ [MCP] Executing: {name} with {arguments}")
+        result = await self.session.call_tool(name, arguments)
+        return result
+
+    async def stop(self):
+        if self.exit_stack:
+            await self.exit_stack.aclose()
+        self._active = False
+
+mcp_bridge = McpAgentBridge()
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup: Inicia o browser para aquecer
-    asyncio.create_task(browser_agent.start())
+    # Startup: Inicia o browser e o MCP Bridge
+    asyncio.create_task(mcp_bridge.start())
     yield
-    # Shutdown: Para o browser
-    await browser_agent.stop()
+    # Shutdown
+    await mcp_bridge.stop()
 
 app = FastAPI(lifespan=lifespan)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # Variável global para memória de curto prazo
 last_analysis_result = "tecnologia e automação"
-
-# ── BROWSER AGENT BRIDGE ──
-class OmniBrowser:
-    def __init__(self):
-        self.playwright = None
-        self.browser = None
-        self.context = None
-        self.page = None
-        self.active = False
-
-    async def start(self):
-        if self.active: return
-        self.playwright = await async_playwright().start()
-        # MUDANÇA TÁTICA: headless=False para você ver o browser abrindo
-        self.browser = await self.playwright.chromium.launch(headless=False) 
-        self.context = await self.browser.new_context(
-            viewport={'width': 1280, 'height': 720},
-            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
-        )
-        self.page = await self.context.new_page()
-        await Stealth().apply_stealth_async(self.page)
-        self.active = True
-        print("🌐 [OmniBrowser] Agent Started and Visible")
-
-    async def navigate(self, url: str):
-        if not self.active: await self.start()
-        try:
-            await self.page.goto(url, wait_until="networkidle", timeout=15000)
-            return await self.page.title()
-        except:
-            return "Navigation Timeout"
-
-    async def stop(self):
-        try:
-            if self.browser: await self.browser.close()
-            if self.playwright: await self.playwright.stop()
-        except: pass
-        self.active = False
-        print("🛑 [OmniBrowser] Agent Stopped")
-
-browser_agent = OmniBrowser()
+cognitive_memory = []
 
 # Conexões
 hud_connections: set[WebSocket] = set()
@@ -135,16 +146,10 @@ async def websocket_hud(ws: WebSocket):
             data = await ws.receive_json()
             if data.get("type") == "command":
                 cmd = data.get("command")
-                # Novos comandos de voz via HUD
-                if cmd == "close_browser":
-                    await browser_agent.stop()
-                elif cmd == "analyze_and_search":
-                    # Este comando pede para a visão analisar e depois pesquisar
-                    # Reencaminhamos para a visão com uma flag de busca
+                if cmd == "analyze_and_search":
                     for v in list(vision_connections):
                         await v.send_json({"type": "command", "command": "analyze", "auto_search": True})
                 else:
-                    # Comandos padrão (analyze, etc)
                     for v in list(vision_connections):
                         try: await v.send_json(data)
                         except: vision_connections.discard(v)
@@ -158,13 +163,13 @@ async def websocket_vision(ws: WebSocket):
     try:
         while True:
             data = await ws.receive_json()
-            # Broadcast para o HUD
             for h in list(hud_connections):
                 try: await h.send_json(data)
                 except: hud_connections.discard(h)
             
-            # REMOVIDO: Gatilhos automáticos por Thumbs Up / Fist para evitar acidentes
-            # O sistema agora só age por comando de voz explícito
+            if data.get("type") == "action":
+                for hud in list(hud_connections):
+                    await handle_agent_action(data["action"], hud)
     except WebSocketDisconnect:
         vision_connections.discard(ws)
 
@@ -172,43 +177,31 @@ async def handle_agent_action(action: str, ws_target: WebSocket):
     global last_analysis_result
     print(f"🎬 [Action] Triggered: {action}")
     
-    # ── MODO MCP (Model Context Protocol) - IMPLEMENTAÇÃO AMANHÃ ──
-    # Esta seção será a ponte com o servidor Playwright MCP
-    
-    if action == "HOMES_EXECUTE_TASK":
-        # Gesto: Thumbs Up -> Pesquisa contextual baseada no que a IA viu
-        search_query = last_analysis_result.replace(" ", "+")
-        url = f"https://www.google.com/search?q={search_query}"
-        await ws_target.send_json({"type": "status_update", "message": f"AGENT_SEARCHING: {last_analysis_result}"})
-        title = await browser_agent.navigate(url)
-        print(f"🔍 [Agent] Found: {title}")
-        
+    # ── INTEGRAÇÃO MCP REAL ──
+    if action == "BROWSER_SEARCH_RECIPE":
+        await ws_target.send_json({"type": "status_update", "message": "AGENT: STARTING_MCP_BROWSER"})
+        try:
+            # Chama a ferramenta de navegação do MCP
+            res = await mcp_bridge.call_tool("playwright_navigate", {
+                "url": "https://www.google.com/search?q=receitas+rapidas+homes"
+            })
+            await ws_target.send_json({"type": "status_update", "message": "AGENT: PAGE_LOADED"})
+        except Exception as e:
+            await ws_target.send_json({"type": "status_update", "message": f"AGENT_ERROR: {str(e)[:20]}"})
+
     elif action == "HOMES_EMERGENCY_STOP":
-        # Gesto: Fist -> Fecha tudo
-        await ws_target.send_json({"type": "status_update", "message": "EMERGENCY_STOP: CLOSING_BROWSER"})
-        await browser_agent.stop()
-    
-    elif action == "BROWSER_SEARCH_RECIPE":
-        title = await browser_agent.navigate("https://www.google.com/search?q=receitas+rapidas+homes")
-        await ws_target.send_json({"type": "status_update", "message": f"SEARCHING: {title}"})
+        await ws_target.send_json({"type": "status_update", "message": "EMERGENCY_STOP: KILLING_AGENT"})
+        # Futura implementação: Parar tasks do MCP
 
-# Buffer de Memória Cognitiva (Contexto Jarvis)
-cognitive_memory = []
-
+# Buffer de Memória Cognitiva
 @app.post("/analyze")
 async def analyze_frame(request: AnalyzeRequest):
     global cognitive_memory, _response_cycle
     
-    # ── LÓGICA DE MOCK / DEMO ──
     if DEMO_MODE:
-        await asyncio.sleep(0.6) # Simula latência de rede/processamento
+        await asyncio.sleep(0.6)
         mock_text = next(_response_cycle)
-        return {
-            "status": "success", 
-            "text": mock_text, 
-            "cached": False, 
-            "demo": True
-        }
+        return {"status": "success", "text": mock_text, "cached": False, "demo": True}
 
     if not client: return {"error": "IA indisponível"}
     try:
@@ -221,7 +214,6 @@ async def analyze_frame(request: AnalyzeRequest):
     cached = _cache_get(img_hash)
     if cached: return {"status": "success", "text": cached, "cached": True}
 
-    # Construir o contexto histórico para a IA
     history_context = " | ".join(cognitive_memory[-3:]) if cognitive_memory else "Nenhum dado anterior."
     
     try:
@@ -230,20 +222,18 @@ async def analyze_frame(request: AnalyzeRequest):
             model=model_id,
             contents=[types.Content(role="user", parts=[
                 types.Part.from_bytes(mime_type="image/jpeg", data=optimized),
-                types.Part.from_text(text=f"Contexto anterior: {history_context}. Analise a imagem atual e descreva-a de forma tática (máximo 8 palavras). Se for o mesmo objeto de antes, confirme a presença.")
+                types.Part.from_text(text=f"Contexto anterior: {history_context}. Analise a imagem atual e descreva-a de forma tática (máximo 8 palavras).")
             ])]
         )
         
         analysis = response.text.strip()
-        # Atualiza memória
         cognitive_memory.append(analysis)
-        if len(cognitive_memory) > 5: cognitive_memory.pop(0) # Mantém as últimas 5
+        if len(cognitive_memory) > 5: cognitive_memory.pop(0)
         
         _cache_set(img_hash, analysis)
         return {"status": "success", "text": analysis, "cached": False}
     except Exception as e:
         return {"status": "error", "message": str(e)}
-
 
 if __name__ == "__main__":
     import uvicorn
