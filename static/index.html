@@ -176,7 +176,6 @@
                     addLog(`HOMES_CMD: ${cmd.toUpperCase()}`, "var(--accent-color)");
                     ws.send(JSON.stringify({type: 'command', command: cmd}));
                 } else {
-                    // MOCK MODE PARA GITHUB PAGES
                     addLog(`MOCK_CMD: ${cmd.toUpperCase()}`, "var(--warn-color)");
                     const mockText = MOCK_RESPONSES[Math.floor(Math.random() * MOCK_RESPONSES.length)];
                     setTimeout(() => {
@@ -203,7 +202,9 @@
 
             function connect() {
                 const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-                const host = window.location.host === ' EngThi.github.io' ? 'localhost:8000' : window.location.host;
+                // Corrigido host sem espaço
+                const isGitHub = window.location.host.includes('github.io');
+                const host = isGitHub ? 'localhost:8000' : window.location.host;
                 
                 try {
                     ws = new WebSocket(`${protocol}//${host}/ws/hud`);
@@ -228,13 +229,8 @@
                             speak(data.text);
                         }
                     };
-                    ws.onclose = () => {
-                        if (!demoInterval) startDemoMode();
-                        setTimeout(connect, 5000);
-                    };
-                    ws.onerror = () => {
-                        if (!demoInterval) startDemoMode();
-                    };
+                    ws.onclose = () => { if (!demoInterval) startDemoMode(); setTimeout(connect, 5000); };
+                    ws.onerror = () => { if (!demoInterval) startDemoMode(); };
                 } catch(e) {
                     startDemoMode();
                 }
@@ -249,14 +245,25 @@
                 banner.innerText = "DEMO_MODE_ACTIVE // SIMULATED_DATA";
                 document.body.appendChild(banner);
 
+                let t = 0;
                 demoInterval = setInterval(() => {
-                    // O movimento agora é controlado pelo mouse no eventListener abaixo
-                    // se o mouse não mexer, ele fica em standby
-                }, 100);
+                    t += 0.05;
+                    // Se o mouse não estiver mexendo, ele faz o movimento automático
+                    if (Date.now() - lastMouseTime > 2000) {
+                        const demoData = {
+                            x: 0.5 + Math.sin(t) * 0.3,
+                            y: 0.5 + Math.cos(t * 0.7) * 0.2,
+                            pinch_progress: 0,
+                            fps: 60
+                        };
+                        updateHUD(demoData);
+                    }
+                }, 50);
             }
 
-            // Tracking do mouse para o deploy estático
+            let lastMouseTime = 0;
             window.addEventListener('mousemove', (e) => {
+                lastMouseTime = Date.now();
                 if (demoInterval || (ws && ws.readyState !== WebSocket.OPEN)) {
                     const data = {
                         x: e.clientX / window.innerWidth,
