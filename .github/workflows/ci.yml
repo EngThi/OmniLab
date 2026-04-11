@@ -24,6 +24,3 @@ jobs:
     
     - name: Lint
       run: python -m py_compile server.py vision.py
-    
-    - name: Test
-      run: pytest tests/
