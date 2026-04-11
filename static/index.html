@@ -154,6 +154,14 @@
             const fpsEl = document.getElementById('fps');
             const logConsole = document.getElementById('log-console');
 
+            const MOCK_RESPONSES = [
+                "TACTICAL ANALYSIS: SUBJECT IDENTIFIED. NEURAL LINK STABLE.",
+                "GESTURE RECOGNITION ACTIVE: PINCH DETECTED. LOADING DEEP SCAN.",
+                "ENVIRONMENT SCAN COMPLETE: NO ANOMALIES DETECTED.",
+                "SYSTEM STATUS: ALL CORE MODULES OPERATING WITHIN NOMINAL PARAMETERS.",
+                "THREAT ASSESSMENT: ZERO EXTERNAL RISKS DETECTED."
+            ];
+
             function addLog(text, color = 'var(--text-color)') {
                 const entry = document.createElement('div');
                 entry.className = 'log-entry';
@@ -167,6 +175,14 @@
                 if (ws && ws.readyState === WebSocket.OPEN) {
                     addLog(`HOMES_CMD: ${cmd.toUpperCase()}`, "var(--accent-color)");
                     ws.send(JSON.stringify({type: 'command', command: cmd}));
+                } else {
+                    // MOCK MODE PARA GITHUB PAGES
+                    addLog(`MOCK_CMD: ${cmd.toUpperCase()}`, "var(--warn-color)");
+                    const mockText = MOCK_RESPONSES[Math.floor(Math.random() * MOCK_RESPONSES.length)];
+                    setTimeout(() => {
+                        addLog(`ANALYSIS: ${mockText}`, '#fff');
+                        speak(mockText);
+                    }, 500);
                 }
             }
 
@@ -174,7 +190,7 @@
                 if ('speechSynthesis' in window) {
                     window.speechSynthesis.cancel();
                     const utterance = new SpeechSynthesisUtterance(text);
-                    utterance.lang = (demoInterval || text.toUpperCase() === text) ? 'en-US' : 'pt-BR';
+                    utterance.lang = 'en-US';
                     utterance.rate = 1.2;
                     utterance.pitch = 0.85; 
                     window.speechSynthesis.speak(utterance);
@@ -186,42 +202,42 @@
             let lastDataTime = Date.now();
 
             function connect() {
-                ws = new WebSocket(`ws://${window.location.host}/ws/hud`);
-                ws.onopen = () => {
-                    addLog("CONNECTION_ESTABLISHED", "var(--accent-color)");
-                    checkDataFlow();
-                };
-                ws.onmessage = (event) => {
-                    const data = JSON.parse(event.data);
-                    if (data.type === 'gesture') {
-                        lastDataTime = Date.now();
+                const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+                const host = window.location.host === ' EngThi.github.io' ? 'localhost:8000' : window.location.host;
+                
+                try {
+                    ws = new WebSocket(`${protocol}//${host}/ws/hud`);
+                    ws.onopen = () => {
+                        addLog("CONNECTION_ESTABLISHED", "var(--accent-color)");
                         if (demoInterval) {
                             clearInterval(demoInterval);
                             demoInterval = null;
                             document.getElementById('demo-banner')?.remove();
-                            addLog("VISION_SIGNAL_RESTORED", "var(--accent-color)");
                         }
-                        updateHUD(data);
-                    } else if (data.type === 'status_update') {
-                        statusEl.innerText = data.message;
-                        addLog(data.message, 'var(--warn-color)');
-                    } else if (data.type === 'analysis_result') {
-                        addLog(`ANALYSIS: ${data.text}`, '#fff');
-                        speak(data.text);
-                    }
-                };
-                ws.onclose = () => {
-                    setTimeout(connect, 2000);
-                    if (!demoInterval) startDemoMode();
-                };
-            }
-
-            function checkDataFlow() {
-                setInterval(() => {
-                    if (Date.now() - lastDataTime > 2000 && !demoInterval && ws.readyState === WebSocket.OPEN) {
-                        startDemoMode();
-                    }
-                }, 1000);
+                    };
+                    ws.onmessage = (event) => {
+                        const data = JSON.parse(event.data);
+                        if (data.type === 'gesture') {
+                            lastDataTime = Date.now();
+                            updateHUD(data);
+                        } else if (data.type === 'status_update') {
+                            statusEl.innerText = data.message;
+                            addLog(data.message, 'var(--warn-color)');
+                        } else if (data.type === 'analysis_result') {
+                            addLog(`ANALYSIS: ${data.text}`, '#fff');
+                            speak(data.text);
+                        }
+                    };
+                    ws.onclose = () => {
+                        if (!demoInterval) startDemoMode();
+                        setTimeout(connect, 5000);
+                    };
+                    ws.onerror = () => {
+                        if (!demoInterval) startDemoMode();
+                    };
+                } catch(e) {
+                    startDemoMode();
+                }
             }
 
             function startDemoMode() {
@@ -233,19 +249,24 @@
                 banner.innerText = "DEMO_MODE_ACTIVE // SIMULATED_DATA";
                 document.body.appendChild(banner);
 
-                let t = 0;
                 demoInterval = setInterval(() => {
-                    t += 0.05;
-                    const demoData = {
-                        x: 0.5 + Math.sin(t) * 0.3,
-                        y: 0.5 + Math.cos(t * 0.7) * 0.2,
-                        pinch_progress: (Math.sin(t * 0.5) > 0.8) ? (Math.sin(t * 0.5) - 0.8) * 5 : 0,
-                        fps: 60
-                    };
-                    updateHUD(demoData);
-                    if (Math.random() > 0.99) addLog("BACKGROUND_SCAN: NOMINAL", "rgba(0,242,255,0.3)");
-                }, 50);
+                    // O movimento agora é controlado pelo mouse no eventListener abaixo
+                    // se o mouse não mexer, ele fica em standby
+                }, 100);
             }
+
+            // Tracking do mouse para o deploy estático
+            window.addEventListener('mousemove', (e) => {
+                if (demoInterval || (ws && ws.readyState !== WebSocket.OPEN)) {
+                    const data = {
+                        x: e.clientX / window.innerWidth,
+                        y: e.clientY / window.innerHeight,
+                        fps: 60,
+                        pinch_progress: 0
+                    };
+                    updateHUD(data);
+                }
+            });
 
             function updateHUD(data) {
                 const targetX = (data.x - 0.5) * 30;
@@ -282,7 +303,6 @@
                         if (event.results[i].isFinal) {
                             const transcript = event.results[i][0].transcript.toLowerCase().trim();
                             addLog(`USER: ${transcript}`);
-                            // WAKE WORD: HOMES
                             if (transcript.includes("homes") || transcript.includes("pesquisar")) {
                                 sendCommand('analyze_and_search');
                             }
@@ -295,7 +315,7 @@
                         }
                     }
                 };
-                recognition.onend = () => recognition.start();
+                recognition.onend = () => { try { recognition.start(); } catch(e) {} };
                 try { recognition.start(); } catch(e) {}
             }
 
