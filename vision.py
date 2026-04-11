@@ -157,7 +157,8 @@ async def main():
                             except: pass
                             if frame is not None: asyncio.create_task(trigger_analysis(websocket, frame, thinking_config))
                         if data["gesture"] == "thumbs_up":
-                            await websocket.send(json.dumps({"type": "action", "action": "BROWSER_SEARCH_RECIPE"}))
+                            await websocket.send(json.dumps({"type": "action", "action": "HOMES_SEARCH_BROWSER"}))
+
                         elif data["gesture"] == "fist":
                             await websocket.send(json.dumps({"type": "action", "action": "HOMES_EMERGENCY_STOP"}))
                     except queue.Empty: pass

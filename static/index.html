@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
     <head>
-        <title>OmniLab HUD // CORE_V2</title>
+        <title>OmniLab HUD // HOMES_CORE</title>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
         <style>
             :root {
@@ -36,7 +36,6 @@
             }
             @keyframes scan { from {top: 0;} to {top: 100%;} }
             
-            /* Painel de Diagnóstico e Controle no Canto Direito */
             #right-bottom-container {
                 position: absolute; bottom: 20px; right: 20px;
                 display: flex; flex-direction: column; align-items: flex-end;
@@ -44,7 +43,9 @@
             }
 
             #control-panel {
-                display: flex; gap: 10px; margin-bottom: 15px;
+                display: flex; gap: 8px; margin-bottom: 15px;
+                flex-wrap: wrap; justify-content: flex-end;
+                max-width: 350px;
             }
 
             .cmd-btn {
@@ -53,19 +54,21 @@
                 color: var(--text-color);
                 padding: 8px 12px;
                 font-family: 'Courier New', monospace;
-                font-size: 0.8em;
+                font-size: 0.75em;
                 cursor: pointer;
                 transition: 0.2s;
                 text-transform: uppercase;
             }
             .cmd-btn:hover { background: var(--text-color); color: #000; box-shadow: 0 0 15px var(--glow-color); }
+            .cmd-btn.special { border-color: var(--accent-color); color: var(--accent-color); }
+            .cmd-btn.special:hover { background: var(--accent-color); color: #000; }
             .cmd-btn.warn:hover { background: var(--warn-color); border-color: var(--warn-color); }
 
             #diag-panel {
                 font-size: 0.75em; text-align: right;
                 border-right: 3px solid var(--text-color); padding-right: 15px;
                 background: rgba(0,0,0,0.3);
-                min-width: 200px;
+                min-width: 220px;
             }
 
             #log-console {
@@ -90,11 +93,10 @@
                 padding: 5px 10px; cursor: pointer; z-index: 100;
             }
 
-            .scanning { animation: pulse 1s infinite !important; }
-            @keyframes pulse {
-                0% { box-shadow: inset 0 0 50px rgba(0, 242, 255, 0); }
-                50% { box-shadow: inset 0 0 150px rgba(0, 242, 255, 0.3); }
-                100% { box-shadow: inset 0 0 50px rgba(0, 242, 255, 0); }
+            #demo-banner {
+                position:absolute; top:10px; left:50%; transform:translateX(-50%); 
+                color:var(--warn-color); font-size:0.8em; border:1px solid var(--warn-color); 
+                padding:5px 20px; background:rgba(255,0,255,0.1); z-index:1000;
             }
         </style>
     </head>
@@ -105,22 +107,20 @@
             
             <div style="display: flex; justify-content: space-between; align-items: flex-start;">
                 <div>
-                    <h2 style="margin: 0;">OMNILAB OS // v2.1.5</h2>
+                    <h2 style="margin: 0;">OMNILAB // HOMES_OS</h2>
                     <div id="status">SYSTEM: STANDBY</div>
-                    <div id="gesture-hint" style="font-size: 0.6em; color: var(--accent-color); opacity: 0.7;">PINCH_HOLD: DEEP_SCAN // MOUSE_INTERACT: ENABLED</div>
+                    <div id="gesture-hint" style="font-size: 0.6em; color: var(--accent-color); opacity: 0.7;">WAKE_WORD: "HOMES"</div>
                 </div>
             </div>
 
             <div id="log-console"></div>
 
             <div id="right-bottom-container">
-                <!-- Button Panel -->
                 <div id="control-panel">
-                    <button class="cmd-btn" onclick="sendCommand('analyze')">Analyze</button>
-                    <button class="cmd-btn" onclick="sendCommand('analyze_and_search')">Search</button>
+                    <button class="cmd-btn" onclick="sendCommand('analyze')">Scan</button>
+                    <button class="cmd-btn special" onclick="sendCommand('analyze_and_search')">HOMES Search</button>
                     <button class="cmd-btn warn" onclick="sendCommand('close_browser')">Terminate</button>
                 </div>
-                <!-- Diagnosis Panel -->
                 <div id="diag-panel">
                     <div id="fps">FPS: 00</div>
                     <div id="mem-status" style="color: var(--accent-color); margin: 4px 0;">MEM: BUFFER_SYNC_ACTIVE</div>
@@ -165,31 +165,8 @@
 
             function sendCommand(cmd) {
                 if (ws && ws.readyState === WebSocket.OPEN) {
-                    addLog(`MANUAL_CMD: ${cmd.toUpperCase()}`, "var(--accent-color)");
+                    addLog(`HOMES_CMD: ${cmd.toUpperCase()}`, "var(--accent-color)");
                     ws.send(JSON.stringify({type: 'command', command: cmd}));
-                } else if (demoInterval) {
-                    // MOCK EXECUTION FOR REVIEWER (NO SERVER)
-                    addLog(`MOCK_CMD: ${cmd.toUpperCase()}`, "var(--warn-color)");
-                    
-                    if (cmd === 'analyze' || cmd === 'analyze_and_search') {
-                        addLog("PROXY: INITIALIZING_PLAYWRIGHT_STEALTH...", "var(--text-color)");
-                        setTimeout(() => {
-                            if (cmd === 'analyze_and_search') addLog("WEB: SEARCHING_FOR_ENVIRONMENT_DATA...", "var(--accent-color)");
-                            setTimeout(() => {
-                                const mocks = [
-                                    "IDENTIFIED: COMMUNICATION HUB. STATUS: OPERATIONAL.",
-                                    "TARGET DETECTED IN PERIMETER. CORRELATING NETWORK DATA.",
-                                    "SURFACE SCAN COMPLETE. NO THREATS DETECTED IN SECTOR.",
-                                    "SEARCH DATA: 3 IOT DEVICES FOUND IN RANGE."
-                                ];
-                                const result = mocks[Math.floor(Math.random() * mocks.length)];
-                                addLog(`ANALYSIS: ${result}`, "#fff");
-                                speak(result);
-                            }, 2000);
-                        }, 1000);
-                    } else if (cmd === 'close_browser') {
-                        addLog("TERMINATING_VIRTUAL_SESSION...", "var(--warn-color)");
-                    }
                 }
             }
 
@@ -197,7 +174,7 @@
                 if ('speechSynthesis' in window) {
                     window.speechSynthesis.cancel();
                     const utterance = new SpeechSynthesisUtterance(text);
-                    utterance.lang = 'en-US';
+                    utterance.lang = (demoInterval || text.toUpperCase() === text) ? 'en-US' : 'pt-BR';
                     utterance.rate = 1.2;
                     utterance.pitch = 0.85; 
                     window.speechSynthesis.speak(utterance);
@@ -208,80 +185,40 @@
             let demoInterval = null;
             let lastDataTime = Date.now();
 
-            // VOICE RECOGNITION (JARVIS MODE)
-            window.SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-            if (window.SpeechRecognition) {
-                const recognition = new SpeechRecognition();
-                recognition.continuous = true;
-                recognition.interimResults = true;
-                recognition.lang = 'en-US'; // Changed to English for Reviewer
-                recognition.onresult = (event) => {
-                    for (let i = event.resultIndex; i < event.results.length; ++i) {
-                        if (event.results[i].isFinal) {
-                            const transcript = event.results[i][0].transcript.toLowerCase().trim();
-                            addLog(`USER_VOICE: ${transcript}`);
-                            if (transcript.includes("analyze")) sendCommand('analyze');
-                            else if (transcript.includes("search")) sendCommand('analyze_and_search');
-                            else if (transcript.includes("close") || transcript.includes("terminate")) sendCommand('close_browser');
+            function connect() {
+                ws = new WebSocket(`ws://${window.location.host}/ws/hud`);
+                ws.onopen = () => {
+                    addLog("CONNECTION_ESTABLISHED", "var(--accent-color)");
+                    checkDataFlow();
+                };
+                ws.onmessage = (event) => {
+                    const data = JSON.parse(event.data);
+                    if (data.type === 'gesture') {
+                        lastDataTime = Date.now();
+                        if (demoInterval) {
+                            clearInterval(demoInterval);
+                            demoInterval = null;
+                            document.getElementById('demo-banner')?.remove();
+                            addLog("VISION_SIGNAL_RESTORED", "var(--accent-color)");
                         }
+                        updateHUD(data);
+                    } else if (data.type === 'status_update') {
+                        statusEl.innerText = data.message;
+                        addLog(data.message, 'var(--warn-color)');
+                    } else if (data.type === 'analysis_result') {
+                        addLog(`ANALYSIS: ${data.text}`, '#fff');
+                        speak(data.text);
                     }
                 };
-                recognition.onend = () => recognition.start();
-                try { recognition.start(); } catch(e) {}
-            }
-
-            function animate() {
-                requestAnimationFrame(animate);
-                innerRing.rotation.z += 0.05;
-                outerRing.rotation.z -= 0.02;
-                renderer.render(scene, camera);
-            }
-            animate();
-
-            function connect() {
-                try {
-                    ws = new WebSocket(`ws://${window.location.host}/ws/hud`);
-                    ws.onopen = () => {
-                        addLog("CONNECTION_ESTABLISHED", "var(--accent-color)");
-                        checkDataFlow();
-                    };
-                    ws.onmessage = (event) => {
-                        const data = JSON.parse(event.data);
-                        if (data.type === 'gesture') {
-                            lastDataTime = Date.now();
-                            if (demoInterval) {
-                                clearInterval(demoInterval);
-                                demoInterval = null;
-                                document.getElementById('demo-banner')?.remove();
-                                addLog("VISION_SIGNAL_RESTORED", "var(--accent-color)");
-                            }
-                            updateHUD(data);
-                        } else if (data.type === 'status_update') {
-                            statusEl.innerText = data.message;
-                            addLog(data.message, 'var(--warn-color)');
-                        } else if (data.type === 'analysis_result') {
-                            addLog(`ANALYSIS: ${data.text}`, '#fff');
-                            speak(data.text);
-                        }
-                    };
-                    ws.onclose = () => {
-                        setTimeout(connect, 2000);
-                        if (!demoInterval) startDemoMode();
-                    };
-                    ws.onerror = () => {
-                        if (!demoInterval) startDemoMode();
-                    };
-                } catch (e) {
-                    console.warn("WebSocket Connection Failed (Possible Mixed Content). Entering Demo Mode.");
+                ws.onclose = () => {
+                    setTimeout(connect, 2000);
                     if (!demoInterval) startDemoMode();
-                }
+                };
             }
-
-            connect();
 
             function checkDataFlow() {
                 setInterval(() => {
-                    if (Date.now() - lastDataTime > 2000 && !demoInterval) {
+                    if (Date.now() - lastDataTime > 2000 && !demoInterval && ws.readyState === WebSocket.OPEN) {
                         startDemoMode();
                     }
                 }, 1000);
@@ -291,17 +228,21 @@
                 if (demoInterval) return;
                 addLog("VISION_OFFLINE: ENTERING_DEMO_MODE", "var(--warn-color)");
                 
-                // Add Visual Banner for Reviewer
                 const banner = document.createElement('div');
                 banner.id = 'demo-banner';
-                banner.style = "position:absolute; top:10px; left:50%; transform:translateX(-50%); color:var(--warn-color); font-size:0.8em; border:1px solid var(--warn-color); padding:5px 20px; background:rgba(255,0,255,0.1); z-index:1000;";
                 banner.innerText = "DEMO_MODE_ACTIVE // SIMULATED_DATA";
                 document.body.appendChild(banner);
 
                 let t = 0;
                 demoInterval = setInterval(() => {
                     t += 0.05;
-                    // Background tactical ping simulation
+                    const demoData = {
+                        x: 0.5 + Math.sin(t) * 0.3,
+                        y: 0.5 + Math.cos(t * 0.7) * 0.2,
+                        pinch_progress: (Math.sin(t * 0.5) > 0.8) ? (Math.sin(t * 0.5) - 0.8) * 5 : 0,
+                        fps: 60
+                    };
+                    updateHUD(demoData);
                     if (Math.random() > 0.99) addLog("BACKGROUND_SCAN: NOMINAL", "rgba(0,242,255,0.3)");
                 }, 50);
             }
@@ -312,7 +253,7 @@
                 cursorGroup.position.x += (targetX - cursorGroup.position.x) * 0.3;
                 cursorGroup.position.y += (targetY - cursorGroup.position.y) * 0.3;
                 
-                if (data.fps) fpsEl.innerText = `FPS: ${data.fps}`;
+                if (data.fps !== undefined) fpsEl.innerText = `FPS: ${data.fps}`;
                 
                 if (data.pinch_progress > 0) {
                     const p = data.pinch_progress;
@@ -327,18 +268,44 @@
                 }
             }
 
-            // MOUSE TRACKING FOR DEMO MODE
-            window.addEventListener('mousemove', (e) => {
-                if (demoInterval) {
-                    const fakeData = {
-                        x: e.clientX / window.innerWidth,
-                        y: e.clientY / window.innerHeight,
-                        fps: 60,
-                        pinch_progress: 0
-                    };
-                    updateHUD(fakeData);
-                }
-            });
+            connect();
+
+            // RECONHECIMENTO DE VOZ (HOMES MODE)
+            window.SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (window.SpeechRecognition) {
+                const recognition = new SpeechRecognition();
+                recognition.continuous = true;
+                recognition.interimResults = true;
+                recognition.lang = 'pt-BR';
+                recognition.onresult = (event) => {
+                    for (let i = event.resultIndex; i < event.results.length; ++i) {
+                        if (event.results[i].isFinal) {
+                            const transcript = event.results[i][0].transcript.toLowerCase().trim();
+                            addLog(`USER: ${transcript}`);
+                            // WAKE WORD: HOMES
+                            if (transcript.includes("homes") || transcript.includes("pesquisar")) {
+                                sendCommand('analyze_and_search');
+                            }
+                            else if (transcript.includes("analisar")) {
+                                sendCommand('analyze');
+                            }
+                            else if (transcript.includes("fechar")) {
+                                sendCommand('close_browser');
+                            }
+                        }
+                    }
+                };
+                recognition.onend = () => recognition.start();
+                try { recognition.start(); } catch(e) {}
+            }
+
+            function animate() {
+                requestAnimationFrame(animate);
+                innerRing.rotation.z += 0.05;
+                outerRing.rotation.z -= 0.02;
+                renderer.render(scene, camera);
+            }
+            animate();
 
             document.getElementById('mode-toggle').onclick = () => document.body.classList.toggle('light-mode');
             window.onresize = () => {
