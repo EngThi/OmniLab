@@ -25,6 +25,13 @@
                 transition: background 0.3s, color 0.3s;
                 text-transform: uppercase;
             }
+            body.scanning {
+                animation: scan-alert 0.5s infinite alternate;
+            }
+            @keyframes scan-alert {
+                from { background: #000; }
+                to { background: #001122; }
+            }
             #ui-layer {
                 position: absolute; top: 0; left: 0; width: 100%; height: 100%;
                 pointer-events: none; padding: 20px;
@@ -154,13 +161,95 @@
             const fpsEl = document.getElementById('fps');
             const logConsole = document.getElementById('log-console');
 
-            const MOCK_RESPONSES = [
-                "TACTICAL ANALYSIS: SUBJECT IDENTIFIED. NEURAL LINK STABLE.",
-                "GESTURE RECOGNITION ACTIVE: PINCH DETECTED. LOADING DEEP SCAN.",
-                "ENVIRONMENT SCAN COMPLETE: NO ANOMALIES DETECTED.",
-                "SYSTEM STATUS: ALL CORE MODULES OPERATING WITHIN NOMINAL PARAMETERS.",
-                "THREAT ASSESSMENT: ZERO EXTERNAL RISKS DETECTED."
-            ];
+            // --- BROWSER VISION CORE (RENDER DEPLOY) ---
+            let browserCameraStream = null;
+            let cameraVideo = null;
+            let captureCanvas = null;
+            let isAnalyzing = false;
+
+            async function ensureBrowserCamera() {
+                if (browserCameraStream) return true;
+                try {
+                    browserCameraStream = await navigator.mediaDevices.getUserMedia({
+                        video: { facingMode: "environment" },
+                        audio: false
+                    });
+                    cameraVideo = document.createElement("video");
+                    cameraVideo.setAttribute("playsinline", "");
+                    cameraVideo.muted = true;
+                    cameraVideo.autoplay = true;
+                    cameraVideo.srcObject = browserCameraStream;
+                    await cameraVideo.play();
+                    captureCanvas = document.createElement("canvas");
+                    addLog("BROWSER_CAM: ONLINE", "var(--accent-color)");
+                    statusEl.innerText = "SYSTEM: CAMERA_READY";
+                    return true;
+                } catch (err) {
+                    addLog("BROWSER_CAM: ACCESS_DENIED", "var(--warn-color)");
+                    statusEl.innerText = "SYSTEM: CAMERA_DENIED";
+                    return false;
+                }
+            }
+
+            async function captureFrameBase64() {
+                if (!cameraVideo || !captureCanvas) return null;
+                const w = cameraVideo.videoWidth || 640;
+                const h = cameraVideo.videoHeight || 480;
+                if (!w || !h) return null;
+                captureCanvas.width = w;
+                captureCanvas.height = h;
+                const ctx = captureCanvas.getContext("2d");
+                ctx.drawImage(cameraVideo, 0, 0, w, h);
+                const dataUrl = captureCanvas.toDataURL("image/jpeg", 0.72);
+                return dataUrl.split(",")[1];
+            }
+
+            async function runBrowserAnalyze(autoSearch = false) {
+                if (isAnalyzing) return;
+                isAnalyzing = true;
+                try {
+                    document.body.classList.add("scanning");
+                    statusEl.innerText = "SCAN: CAPTURING_FRAME";
+                    const ok = await ensureBrowserCamera();
+                    if (!ok) {
+                        addLog("ANALYSIS_ABORTED: NO_CAMERA", "var(--warn-color)");
+                        return;
+                    }
+                    const imageBase64 = await captureFrameBase64();
+                    if (!imageBase64) {
+                        addLog("ANALYSIS_ABORTED: EMPTY_FRAME", "var(--warn-color)");
+                        return;
+                    }
+                    addLog("VISION: FRAME_CAPTURED", "var(--text-color)");
+                    statusEl.innerText = "SCAN: ANALYZING";
+                    const res = await fetch("/analyze", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ image: imageBase64 })
+                    });
+                    const data = await res.json();
+                    if (data.status === "success" && data.text) {
+                        addLog(`ANALYSIS: ${data.text}`, "#fff");
+                        speak(data.text);
+                        statusEl.innerText = data.cached ? "SYSTEM: TRACKING (CACHED)" : "SYSTEM: TRACKING";
+                        if (autoSearch) {
+                            addLog("WEB: SEARCH REQUESTED", "var(--accent-color)");
+                            if (ws && ws.readyState === WebSocket.OPEN) {
+                                ws.send(JSON.stringify({ type: "command", command: "analyze_and_search" }));
+                            }
+                        }
+                    } else {
+                        addLog(`ANALYSIS_ERROR: ${data.message || "UNKNOWN"}`, "var(--warn-color)");
+                        statusEl.innerText = "SYSTEM: ERROR";
+                    }
+                } catch (err) {
+                    addLog(`NETWORK_ERROR: ${err.message}`, "var(--warn-color)");
+                    statusEl.innerText = "SYSTEM: NETWORK_ERROR";
+                } finally {
+                    document.body.classList.remove("scanning");
+                    isAnalyzing = false;
+                }
+            }
 
             function addLog(text, color = 'var(--text-color)') {
                 const entry = document.createElement('div');
@@ -171,17 +260,23 @@
                 if (logConsole.childNodes.length > 10) logConsole.lastChild.remove();
             }
 
-            function sendCommand(cmd) {
-                if (ws && ws.readyState === WebSocket.OPEN) {
-                    addLog(`HOMES_CMD: ${cmd.toUpperCase()}`, "var(--accent-color)");
-                    ws.send(JSON.stringify({type: 'command', command: cmd}));
-                } else {
-                    addLog(`MOCK_CMD: ${cmd.toUpperCase()}`, "var(--warn-color)");
-                    const mockText = MOCK_RESPONSES[Math.floor(Math.random() * MOCK_RESPONSES.length)];
-                    setTimeout(() => {
-                        addLog(`ANALYSIS: ${mockText}`, '#fff');
-                        speak(mockText);
-                    }, 500);
+            async function sendCommand(cmd) {
+                addLog(`MANUAL_CMD: ${cmd.toUpperCase()}`, "var(--accent-color)");
+                if (cmd === "analyze") {
+                    await runBrowserAnalyze(false);
+                    return;
+                }
+                if (cmd === "analyze_and_search") {
+                    await runBrowserAnalyze(true);
+                    return;
+                }
+                if (cmd === "close_browser") {
+                    if (ws && ws.readyState === WebSocket.OPEN) {
+                        ws.send(JSON.stringify({ type: "command", command: cmd }));
+                        addLog("TERMINATE_SIGNAL: SENT", "var(--warn-color)");
+                    } else {
+                        addLog("TERMINATING_VIRTUAL_SESSION...", "var(--warn-color)");
+                    }
                 }
             }
 
@@ -202,7 +297,6 @@
 
             function connect() {
                 const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-                // Corrigido host sem espaço
                 const isGitHub = window.location.host.includes('github.io');
                 const host = isGitHub ? 'localhost:8000' : window.location.host;
                 
@@ -248,7 +342,6 @@
                 let t = 0;
                 demoInterval = setInterval(() => {
                     t += 0.05;
-                    // Se o mouse não estiver mexendo, ele faz o movimento automático
                     if (Date.now() - lastMouseTime > 2000) {
                         const demoData = {
                             x: 0.5 + Math.sin(t) * 0.3,
