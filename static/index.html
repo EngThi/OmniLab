@@ -183,6 +183,10 @@
                     captureCanvas = document.createElement("canvas");
                     addLog("BROWSER_CAM: ONLINE", "var(--accent-color)");
                     statusEl.innerText = "SYSTEM: CAMERA_READY";
+
+                    // Inicia o loop de rastreamento de mão (Hand Tracking)
+                    startHandTrackingLoop();
+
                     return true;
                 } catch (err) {
                     addLog("BROWSER_CAM: ACCESS_DENIED", "var(--warn-color)");
@@ -190,6 +194,22 @@
                     return false;
                 }
             }
+
+            // Loop de rastreamento de mão em tempo real
+            async function startHandTrackingLoop() {
+                while (browserCameraStream) {
+                    if (ws && ws.readyState === WebSocket.OPEN && !isAnalyzing) {
+                        const frame = await captureFrameBase64();
+                        if (frame) {
+                            ws.send(JSON.stringify({ type: "frame", image: frame }));
+                        }
+                    }
+                    // Espera 100ms (10 FPS) para não sobrecarregar a rede do Render
+                    await new_delay(100);
+                }
+            }
+
+            function new_delay(ms) { return new Promise(res => setTimeout(res, ms)); }
 
             async function captureFrameBase64() {
                 if (!cameraVideo || !captureCanvas) return null;

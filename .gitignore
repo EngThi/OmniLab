@@ -23,3 +23,4 @@ LEMBRAR.txt
 server.log
 wakatime.zip
 TESTES/logs.py
+.playwright_data/

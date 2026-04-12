@@ -168,6 +168,14 @@ async def websocket_hud(ws: WebSocket):
     try:
         while True:
             data = await ws.receive_json()
+            
+            # Encaminha frames de câmera vindos do browser para o vision.py
+            if data.get("type") == "frame" and data.get("image"):
+                for v in list(vision_connections):
+                    try: await v.send_json(data)
+                    except: vision_connections.discard(v)
+                continue
+
             if data.get("type") == "command":
                 cmd = data.get("command")
                 if cmd == "close_browser":

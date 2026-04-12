@@ -89,7 +89,6 @@ def draw_landmarks_on_image(rgb_image, detection_result):
 
 def vision_loop():
     global running
-    cap = cv2.VideoCapture(0)
     pinch_start_time = None
     last_gesture_time = 0
     prev_landmarks = None
@@ -97,39 +96,44 @@ def vision_loop():
     fps_counter = 0
     fps = 0
 
+    print("[\033[92mONLINE\033[0m] MediaPipe Cloud Stream Ready")
+    
     with vision.HandLandmarker.create_from_options(options) as landmarker:
-        while running and cap.isOpened():
-            success, frame = cap.read()
-            if not success: break
-            fps_counter += 1
-            if (time.time() - fps_start_time) > 1:
-                fps, fps_counter, fps_start_time = fps_counter, 0, time.time()
-
-            frame = cv2.flip(frame, 1)
-            img_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
-            timestamp = int(time.time() * 1000)
-            results = landmarker.detect_for_video(mp_image, timestamp)
-
-            gesture_name, pinch_progress, x, y = "none", 0.0, 0.5, 0.5
-            if results.hand_landmarks:
-                landmarks = results.hand_landmarks[0]
-                gesture_name, dist, x, y = detect_gesture_type(landmarks, prev_landmarks)
-                prev_landmarks = landmarks
-                if gesture_name == "pinch":
-                    if pinch_start_time is None: pinch_start_time = timestamp
-                    else: pinch_progress = min((timestamp - pinch_start_time) / PINCH_THRESHOLD_MS, 1.0)
-                else:
-                    pinch_start_time = None
-                    if gesture_name in ["swipe_left", "swipe_right", "thumbs_up", "fist"] and time.time() - last_gesture_time < GESTURE_COOLDOWN:
-                        gesture_name = "none"
-                    elif gesture_name != "none": last_gesture_time = time.time()
-
-            payload = {"type": "gesture", "gesture": gesture_name, "x": float(x), "y": float(y), "pinch_progress": float(pinch_progress), "fps": fps, "timestamp": timestamp}
+        while running:
             try:
-                if not gesture_queue.full(): gesture_queue.put_nowait(payload)
-                if not frame_queue.full(): frame_queue.put_nowait(frame.copy())
-            except: pass
+                # Agora pegamos o frame da fila enviada pelo Browser
+                frame = frame_queue.get(timeout=1.0)
+                fps_counter += 1
+                if (time.time() - fps_start_time) > 1:
+                    fps, fps_counter, fps_start_time = fps_counter, 0, time.time()
+
+                img_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=img_rgb)
+                timestamp = int(time.time() * 1000)
+                results = landmarker.detect_for_video(mp_image, timestamp)
+
+                gesture_name, pinch_progress, x, y = "none", 0.0, 0.5, 0.5
+                if results.hand_landmarks:
+                    landmarks = results.hand_landmarks[0]
+                    gesture_name, dist, x, y = detect_gesture_type(landmarks, prev_landmarks)
+                    prev_landmarks = landmarks
+                    if gesture_name == "pinch":
+                        if pinch_start_time is None: pinch_start_time = timestamp
+                        else: pinch_progress = min((timestamp - pinch_start_time) / PINCH_THRESHOLD_MS, 1.0)
+                    else:
+                        pinch_start_time = None
+                        if gesture_name in ["swipe_left", "swipe_right", "thumbs_up", "fist"] and time.time() - last_gesture_time < GESTURE_COOLDOWN:
+                            gesture_name = "none"
+                        elif gesture_name != "none": last_gesture_time = time.time()
+
+                payload = {"type": "gesture", "gesture": gesture_name, "x": float(x), "y": float(y), "pinch_progress": float(pinch_progress), "fps": fps, "timestamp": timestamp}
+                try:
+                    if not gesture_queue.full(): gesture_queue.put_nowait(payload)
+                except: pass
+
+            except Exception as e:
+                print(f"Vision Error: {e}")
+                time.sleep(0.1)
 
             if os.getenv("SHOW_VISION") == "true":
                 cv2.putText(frame, f"GESTURE: {gesture_name.upper()}", (10, 30), 1, 1.5, (0,255,0), 2)
@@ -139,33 +143,37 @@ def vision_loop():
     cap.release()
     cv2.destroyAllWindows()
 
+import base64
+
 async def main():
     uri = "ws://localhost:8000/ws/vision"
     thinking_config = types.GenerateContentConfig(thinking_config=types.ThinkingConfig(include_thoughts=True))
     while running:
         try:
             async with websockets.connect(uri) as websocket:
-                print("[\033[92mONLINE\033[0m] OmniLab Master Core Ativo")
+                print("[\033[92mONLINE\033[0m] MediaPipe Cloud Engine Ativo")
                 while running:
                     try:
-                        data = gesture_queue.get_nowait()
-                        await websocket.send(json.dumps(data))
-                        if data["pinch_progress"] >= 1.0:
-                            frame = None
-                            try:
-                                while not frame_queue.empty(): frame = frame_queue.get_nowait()
-                            except: pass
-                            if frame is not None: asyncio.create_task(trigger_analysis(websocket, frame, thinking_config))
-                        if data["gesture"] == "thumbs_up":
-                            await websocket.send(json.dumps({"type": "action", "action": "HOMES_SEARCH_BROWSER"}))
+                        # 1. Envia resultados do MediaPipe para o HUD via Server
+                        try:
+                            gesture_data = gesture_queue.get_nowait()
+                            await websocket.send(json.dumps(gesture_data))
+                        except queue.Empty: pass
 
-                        elif data["gesture"] == "fist":
-                            await websocket.send(json.dumps({"type": "action", "action": "HOMES_EMERGENCY_STOP"}))
-                    except queue.Empty: pass
-                    try:
-                        msg = await asyncio.wait_for(websocket.recv(), timeout=0.001)
-                        cmd = json.loads(msg)
-                        if cmd.get("command") == "analyze":
+                        # 2. Recebe frames ou comandos do servidor
+                        msg = await asyncio.wait_for(websocket.recv(), timeout=0.01)
+                        data = json.loads(msg)
+                        
+                        # Se receber um frame do browser via server.py
+                        if data.get("type") == "frame" and data.get("image"):
+                            img_data = base64.b64decode(data["image"])
+                            nparr = np.frombuffer(img_data, np.uint8)
+                            frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+                            if not frame_queue.full():
+                                frame_queue.put_nowait(frame)
+                                
+                        if data.get("command") == "analyze":
+                            # ... (resto da lógica de análise)
                             frame = None
                             try:
                                 while not frame_queue.empty(): frame = frame_queue.get_nowait()

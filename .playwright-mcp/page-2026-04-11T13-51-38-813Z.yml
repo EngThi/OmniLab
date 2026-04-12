@@ -1,0 +1,724 @@
+- generic [active] [ref=e1]:
+  - generic:
+    - generic:
+      - link "Ir para o conteúdo principal" [ref=e2] [cursor=pointer]
+      - link "Ajuda sobre acessibilidade" [ref=e3] [cursor=pointer]:
+        - /url: https://support.google.com/websearch/answer/181196?hl=pt-BR
+      - link "Feedback de acessibilidade" [ref=e4] [cursor=pointer]
+  - generic [ref=e9]:
+    - search [ref=e10]:
+      - generic [ref=e13]:
+        - link "Ir para a página inicial do Google" [ref=e14] [cursor=pointer]:
+          - /url: https://www.google.com/webhp?hl=pt-BR&ictx=0&sa=X&ved=0ahUKEwi01b_h-OWTAxV0F7kGHVwxJ0cQpYkNCAs
+          - img "Ir para a página inicial do Google" [ref=e15]
+        - generic [ref=e20]:
+          - combobox "Pesquisar" [ref=e23]: technology and automation technology and automation
+          - generic [ref=e24]:
+            - button "Limpar" [ref=e26] [cursor=pointer]:
+              - img [ref=e28]
+            - generic [ref=e31]:
+              - button "Ferramentas de inserção de texto" [ref=e32] [cursor=pointer]:
+                - img [ref=e34]
+              - button "Pesquisar por voz" [ref=e36] [cursor=pointer]:
+                - img [ref=e37]
+              - button "Pesquisa por imagem" [ref=e39] [cursor=pointer]:
+                - img [ref=e40]
+        - button "Pesquisar" [ref=e42] [cursor=pointer]:
+          - img [ref=e45]
+    - generic [ref=e47]:
+      - button "Configurações" [ref=e49] [cursor=pointer]:
+        - img [ref=e52]
+      - generic [ref=e55]:
+        - button "Google Apps" [ref=e57] [cursor=pointer]:
+          - img [ref=e58]
+        - link "Fazer login" [ref=e62] [cursor=pointer]:
+          - /url: https://accounts.google.com/ServiceLogin?hl=pt-BR&passive=true&continue=https://www.google.com/search%3Fq%3Dtechnology%2Band%2Bautomation&ec=futura_srp_og_si_72236_p
+  - generic [ref=e64]:
+    - navigation [ref=e70]:
+      - generic [ref=e76]:
+        - list [ref=e77]:
+          - listitem [ref=e78]:
+            - link "Modo IA" [ref=e81] [cursor=pointer]:
+              - /url: /search?q=technology+and+automation&sca_esv=5ed080b9caecffb2&udm=50&fbs=ADc_l-acAb_3MMOAUx0zmbUpgBqRiigBgL2I_pgQa-94zvB054Dys3s2x_Qm_GJcU2DlSXgtwykOhjc8tZDD70ApjQy2F_7G9F-2oFDI3kA5ZHm8DWLK6AOUEc35WkjiPwiSq5eiP87tS-cLg33g99sAYD4AFlD0fXPUjFYYFrOvMNlZFuBkKplXhn8ywyn4u5CrEtygFxeVMT-_MFMVTVetV4y_2dWWvA&aep=1&ntc=1&sa=X&ved=2ahUKEwi01b_h-OWTAxV0F7kGHVwxJ0cQ2J8OegQIERAI
+              - generic [ref=e84]: Modo IA
+          - listitem [ref=e85]:
+            - link "Tudo" [disabled] [ref=e86]:
+              - generic [ref=e88]: Tudo
+          - listitem [ref=e89]:
+            - link "Imagens" [ref=e90] [cursor=pointer]:
+              - /url: /search?sca_esv=5ed080b9caecffb2&udm=2&fbs=ADc_l-acAb_3MMOAUx0zmbUpgBqRiigBgL2I_pgQa-94zvB054Dys3s2x_Qm_GJcU2DlSXgtwykOhjc8tZDD70ApjQy2F_7G9F-2oFDI3kA5ZHm8DWLK6AOUEc35WkjiPwiSq5eiP87tS-cLg33g99sAYD4AFlD0fXPUjFYYFrOvMNlZFuBkKplXhn8ywyn4u5CrEtygFxeVMT-_MFMVTVetV4y_2dWWvA&q=technology+and+automation&sa=X&ved=2ahUKEwi01b_h-OWTAxV0F7kGHVwxJ0cQtKgLegQIEhAB
+              - generic [ref=e92]: Imagens
+          - listitem [ref=e93]:
+            - link "Vídeos" [ref=e94] [cursor=pointer]:
+              - /url: /search?sca_esv=5ed080b9caecffb2&udm=7&fbs=ADc_l-acAb_3MMOAUx0zmbUpgBqRiigBgL2I_pgQa-94zvB054Dys3s2x_Qm_GJcU2DlSXgtwykOhjc8tZDD70ApjQy2F_7G9F-2oFDI3kA5ZHm8DWLK6AOUEc35WkjiPwiSq5eiP87tS-cLg33g99sAYD4AFlD0fXPUjFYYFrOvMNlZFuBkKplXhn8ywyn4u5CrEtygFxeVMT-_MFMVTVetV4y_2dWWvA&q=technology+and+automation&sa=X&ved=2ahUKEwi01b_h-OWTAxV0F7kGHVwxJ0cQtKgLegQIFBAB
+              - generic [ref=e96]: Vídeos
+          - listitem [ref=e97]:
+            - link "Shopping" [ref=e98] [cursor=pointer]:
+              - /url: /search?sca_esv=5ed080b9caecffb2&udm=28&fbs=ADc_l-acAb_3MMOAUx0zmbUpgBqRiigBgL2I_pgQa-94zvB054Dys3s2x_Qm_GJcU2DlSXgtwykOhjc8tZDD70ApjQy2F_7G9F-2oFDI3kA5ZHm8DWLK6AOUEc35WkjiPwiSq5eiP87tS-cLg33g99sAYD4AFlD0fXPUjFYYFrOvMNlZFuBkKplXhn8ywyn4u5CrEtygFxeVMT-_MFMVTVetV4y_2dWWvA&q=technology+and+automation&ved=1t:220175&ictx=111
+              - generic [ref=e100]: Shopping
+          - listitem [ref=e101]:
+            - link "Notícias" [ref=e102] [cursor=pointer]:
+              - /url: /search?sca_esv=5ed080b9caecffb2&q=technology+and+automation&tbm=nws&source=lnms&fbs=ADc_l-acAb_3MMOAUx0zmbUpgBqRiigBgL2I_pgQa-94zvB054Dys3s2x_Qm_GJcU2DlSXgtwykOhjc8tZDD70ApjQy2F_7G9F-2oFDI3kA5ZHm8DWLK6AOUEc35WkjiPwiSq5eiP87tS-cLg33g99sAYD4AFlD0fXPUjFYYFrOvMNlZFuBkKplXhn8ywyn4u5CrEtygFxeVMT-_MFMVTVetV4y_2dWWvA&sa=X&ved=2ahUKEwi01b_h-OWTAxV0F7kGHVwxJ0cQ0pQJegQIFhAB
+              - generic [ref=e104]: Notícias
+          - listitem [ref=e105]:
+            - link "Vídeos curtos" [ref=e106] [cursor=pointer]:
+              - /url: /search?sca_esv=5ed080b9caecffb2&udm=39&fbs=ADc_l-acAb_3MMOAUx0zmbUpgBqRiigBgL2I_pgQa-94zvB054Dys3s2x_Qm_GJcU2DlSXgtwykOhjc8tZDD70ApjQy2F_7G9F-2oFDI3kA5ZHm8DWLK6AOUEc35WkjiPwiSq5eiP87tS-cLg33g99sAYD4AFlD0fXPUjFYYFrOvMNlZFuBkKplXhn8ywyn4u5CrEtygFxeVMT-_MFMVTVetV4y_2dWWvA&q=technology+and+automation&sa=X&ved=2ahUKEwi01b_h-OWTAxV0F7kGHVwxJ0cQs6gLegQIFxAB
+              - generic [ref=e108]: Vídeos curtos
+          - listitem [ref=e109]:
+            - button "Mais filtros" [ref=e110] [cursor=pointer]:
+              - generic "Mais filtros" [ref=e111]:
+                - generic [ref=e112]:
+                  - generic [ref=e113]: Mais
+                  - img [ref=e115]
+        - button "Ferramentas" [ref=e118] [cursor=pointer]:
+          - generic [ref=e120]:
+            - generic [ref=e121]: Ferramentas
+            - img [ref=e123]
+    - heading "Resultados da pesquisa" [level=1] [ref=e125]
+    - generic [ref=e130]:
+      - generic [ref=e149]:
+        - generic [ref=e154]:
+          - generic [ref=e156]:
+            - generic [ref=e157]:
+              - img [ref=e158]
+              - heading "Visão geral criada por IA" [level=2] [ref=e160]
+            - button "Listen" [ref=e164]:
+              - img [ref=e169] [cursor=pointer]
+            - button "Sobre este resultado" [ref=e174]:
+              - img [ref=e176]
+          - generic [ref=e197]:
+            - generic [ref=e200]:
+              - generic [ref=e201]:
+                - 'button "Ready or Not: The Role of Automation in 2025 and Beyond" [ref=e205]':
+                  - 'img "Ready or Not: The Role of Automation in 2025 and Beyond" [ref=e206]'
+                - text: Technology and automation
+                - mark [ref=e207]: involve using systems like AI, robotics, and software to perform tasks with minimal human intervention, driving efficiency, safety, and productivity across industries
+                - text: . Key trends for 2025 include "
+                - link "digital twins" [ref=e209] [cursor=pointer]:
+                  - /url: https://www.google.com/search?q=digital+twins&mstk=AUtExfAf-NTV7daMkrYj-zCXkasDR4-UtGr85nLf9waJFBTlMrf5PIgA6GZ0rPB8hSuVDBAQM0UG-ACIAc2qnu0lLnFMnUelSQjylONWhjIaFadg3ICSbTmcUyQe-8a4TbRvunI&csui=3&ved=2ahUKEwjVxdjh-OWTAxX6PrkGHeQDB-MQgK4QegQIARAE
+                - text: "\" for simulation,"
+                - link "predictive maintenance" [ref=e211] [cursor=pointer]:
+                  - /url: https://www.google.com/search?q=predictive+maintenance&mstk=AUtExfAf-NTV7daMkrYj-zCXkasDR4-UtGr85nLf9waJFBTlMrf5PIgA6GZ0rPB8hSuVDBAQM0UG-ACIAc2qnu0lLnFMnUelSQjylONWhjIaFadg3ICSbTmcUyQe-8a4TbRvunI&csui=3&ved=2ahUKEwjVxdjh-OWTAxX6PrkGHeQDB-MQgK4QegQIARAF
+                - text: ", and intelligent automation. These technologies, including"
+                - link "robotic process automation (RPA)" [ref=e213] [cursor=pointer]:
+                  - /url: https://www.google.com/search?q=robotic+process+automation+%28RPA%29&mstk=AUtExfAf-NTV7daMkrYj-zCXkasDR4-UtGr85nLf9waJFBTlMrf5PIgA6GZ0rPB8hSuVDBAQM0UG-ACIAc2qnu0lLnFMnUelSQjylONWhjIaFadg3ICSbTmcUyQe-8a4TbRvunI&csui=3&ved=2ahUKEwjVxdjh-OWTAxX6PrkGHeQDB-MQgK4QegQIARAG
+                - text: ", reduce errors, lower costs, and enhance operational speed."
+                - button [ref=e216] [cursor=pointer]:
+                  - generic [ref=e217]:
+                    - img [ref=e218]
+                    - generic [ref=e219]:
+                      - generic [ref=e220]: IBM
+                      - generic [ref=e221]: "+6"
+              - generic [ref=e222]:
+                - text: "This video shows some of the top automation technologies to watch for:"
+                - generic [ref=e225]:
+                  - button [ref=e228] [cursor=pointer]:
+                    - img [ref=e229]
+                    - generic [ref=e231]:
+                      - img [ref=e232]
+                      - generic [ref=e234]: 31s
+                    - img [ref=e239]
+                  - link [ref=e244] [cursor=pointer]:
+                    - /url: https://www.youtube.com/watch?v=BaYcF_IAL28&t=12
+                    - generic [ref=e251]:
+                      - generic [ref=e252]: Tan Kian Hua
+                      - generic [ref=e253]: YouTube• 31 de mai. de 2024
+              - strong [ref=e255]: Core Components of Automation
+              - list [ref=e256]:
+                - listitem [ref=e257]:
+                  - generic [ref=e258]:
+                    - strong [ref=e259]:
+                      - link [ref=e261] [cursor=pointer]:
+                        - /url: https://www.google.com/search?q=Industrial+Robots&mstk=AUtExfAf-NTV7daMkrYj-zCXkasDR4-UtGr85nLf9waJFBTlMrf5PIgA6GZ0rPB8hSuVDBAQM0UG-ACIAc2qnu0lLnFMnUelSQjylONWhjIaFadg3ICSbTmcUyQe-8a4TbRvunI&csui=3&ved=2ahUKEwjVxdjh-OWTAxX6PrkGHeQDB-MQgK4QegQIBRAB
+                        - text: Industrial Robots
+                      - text: ":"
+                    - text: Machines performing repetitive tasks such as assembly and material handling, often equipped with sensors to enhance precision.
+                - listitem [ref=e262]:
+                  - generic [ref=e263]:
+                    - strong [ref=e264]:
+                      - link [ref=e266] [cursor=pointer]:
+                        - /url: https://www.google.com/search?q=Programmable+Logic+Controllers+%28PLCs%29&mstk=AUtExfAf-NTV7daMkrYj-zCXkasDR4-UtGr85nLf9waJFBTlMrf5PIgA6GZ0rPB8hSuVDBAQM0UG-ACIAc2qnu0lLnFMnUelSQjylONWhjIaFadg3ICSbTmcUyQe-8a4TbRvunI&csui=3&ved=2ahUKEwjVxdjh-OWTAxX6PrkGHeQDB-MQgK4QegQIBRAD
+                        - text: Programmable Logic Controllers (PLCs)
+                      - text: ":"
+                    - text: Specialized computers that act as the "brains" of industrial processes, controlling machinery in real-time.
+                - listitem [ref=e267]:
+                  - generic [ref=e268]:
+                    - strong [ref=e269]:
+                      - link [ref=e271] [cursor=pointer]:
+                        - /url: https://www.google.com/search?q=Software+Automation+%28RPA%29&mstk=AUtExfAf-NTV7daMkrYj-zCXkasDR4-UtGr85nLf9waJFBTlMrf5PIgA6GZ0rPB8hSuVDBAQM0UG-ACIAc2qnu0lLnFMnUelSQjylONWhjIaFadg3ICSbTmcUyQe-8a4TbRvunI&csui=3&ved=2ahUKEwjVxdjh-OWTAxX6PrkGHeQDB-MQgK4QegQIBRAF
+                        - text: Software Automation (RPA)
+                      - text: ":"
+                    - text: Software robots that emulate human actions to automate data-intensive, repetitive business tasks.
+                - listitem [ref=e272]:
+                  - generic [ref=e273]:
+                    - strong [ref=e274]:
+                      - link [ref=e276] [cursor=pointer]:
+                        - /url: https://www.google.com/search?q=Artificial+Intelligence+%28AI%29+and+Machine+Learning+%28ML%29&mstk=AUtExfAf-NTV7daMkrYj-zCXkasDR4-UtGr85nLf9waJFBTlMrf5PIgA6GZ0rPB8hSuVDBAQM0UG-ACIAc2qnu0lLnFMnUelSQjylONWhjIaFadg3ICSbTmcUyQe-8a4TbRvunI&csui=3&ved=2ahUKEwjVxdjh-OWTAxX6PrkGHeQDB-MQgK4QegQIBRAH
+                        - text: Artificial Intelligence (AI) and Machine Learning (ML)
+                      - text: ":"
+                    - text: Technologies that enable systems to learn from data, make decisions, and optimize processes.
+                  - button [ref=e279] [cursor=pointer]:
+                    - generic [ref=e280]:
+                      - img [ref=e281]
+                      - generic [ref=e282]:
+                        - generic [ref=e283]: Forbes
+                        - generic [ref=e284]: "+5"
+              - strong [ref=e286]: Major Benefits and Impact
+              - list [ref=e287]:
+                - listitem [ref=e288]:
+                  - generic [ref=e289]:
+                    - strong [ref=e290]: "Increased Productivity:"
+                    - text: Automation allows for 24/7 operation, leading to higher output compared to human-only, shift-based work.
+                - listitem [ref=e291]:
+                  - generic [ref=e292]:
+                    - strong [ref=e293]: "Improved Accuracy and Quality:"
+                    - text: Robotic systems and advanced sensors ensure high precision, reducing human error.
+                - listitem [ref=e294]:
+                  - generic [ref=e295]:
+                    - strong [ref=e296]: "Cost Savings:"
+                    - text: While initial investment is high, automated systems reduce labor costs and operational waste over time.
+                - listitem [ref=e297]:
+                  - generic [ref=e298]:
+                    - strong [ref=e299]: "Enhanced Safety:"
+                    - text: By automating dangerous tasks, industries significantly reduce workplace accidents.
+                  - button [ref=e302] [cursor=pointer]:
+                    - generic [ref=e303]:
+                      - img [ref=e304]
+                      - generic [ref=e305]:
+                        - generic [ref=e306]: Spiceworks
+                        - generic [ref=e307]: "+3"
+              - strong [ref=e309]: Current Trends in Technology & Automation
+              - list [ref=e310]:
+                - listitem [ref=e311]:
+                  - generic [ref=e312]:
+                    - strong [ref=e313]:
+                      - link [ref=e315] [cursor=pointer]:
+                        - /url: https://www.google.com/search?q=Digital+Twins&mstk=AUtExfAf-NTV7daMkrYj-zCXkasDR4-UtGr85nLf9waJFBTlMrf5PIgA6GZ0rPB8hSuVDBAQM0UG-ACIAc2qnu0lLnFMnUelSQjylONWhjIaFadg3ICSbTmcUyQe-8a4TbRvunI&csui=3&ved=2ahUKEwjVxdjh-OWTAxX6PrkGHeQDB-MQgK4QegQICRAB
+                        - text: Digital Twins
+                      - text: ":"
+                    - text: Creating virtual representations of physical assets to monitor and simulate performance in real-time.
+                - listitem [ref=e316]:
+                  - generic [ref=e317]:
+                    - strong [ref=e318]:
+                      - link [ref=e320] [cursor=pointer]:
+                        - /url: https://www.google.com/search?q=Hyperautomation&mstk=AUtExfAf-NTV7daMkrYj-zCXkasDR4-UtGr85nLf9waJFBTlMrf5PIgA6GZ0rPB8hSuVDBAQM0UG-ACIAc2qnu0lLnFMnUelSQjylONWhjIaFadg3ICSbTmcUyQe-8a4TbRvunI&csui=3&ved=2ahUKEwjVxdjh-OWTAxX6PrkGHeQDB-MQgK4QegQICRAD
+                        - text: Hyperautomation
+                      - text: ":"
+                    - text: The combination of multiple tools, such as AI, ML, and RPA, to automate as many business and IT processes as possible.
+                - listitem [ref=e321]:
+                  - generic [ref=e322]:
+                    - strong [ref=e323]:
+                      - link [ref=e325] [cursor=pointer]:
+                        - /url: https://www.google.com/search?q=Predictive+Maintenance&mstk=AUtExfAf-NTV7daMkrYj-zCXkasDR4-UtGr85nLf9waJFBTlMrf5PIgA6GZ0rPB8hSuVDBAQM0UG-ACIAc2qnu0lLnFMnUelSQjylONWhjIaFadg3ICSbTmcUyQe-8a4TbRvunI&csui=3&ved=2ahUKEwjVxdjh-OWTAxX6PrkGHeQDB-MQgK4QegQICRAF
+                        - text: Predictive Maintenance
+                      - text: ":"
+                    - text: Using data from sensors to forecast equipment failures before they occur, reducing downtime.
+                - listitem [ref=e326]:
+                  - generic [ref=e327]:
+                    - strong [ref=e328]:
+                      - link [ref=e330] [cursor=pointer]:
+                        - /url: https://www.google.com/search?q=Low-Code%2FNo-Code+Platforms&mstk=AUtExfAf-NTV7daMkrYj-zCXkasDR4-UtGr85nLf9waJFBTlMrf5PIgA6GZ0rPB8hSuVDBAQM0UG-ACIAc2qnu0lLnFMnUelSQjylONWhjIaFadg3ICSbTmcUyQe-8a4TbRvunI&csui=3&ved=2ahUKEwjVxdjh-OWTAxX6PrkGHeQDB-MQgK4QegQICRAH
+                        - text: Low-Code/No-Code Platforms
+                      - text: ":"
+                    - text: Allowing non-programmers to create and deploy automation workflows.
+                  - button [ref=e333] [cursor=pointer]:
+                    - generic [ref=e334]:
+                      - img [ref=e335]
+                      - generic [ref=e336]:
+                        - generic [ref=e337]: YouTube
+                        - generic [ref=e338]: "+2"
+              - generic [ref=e339]:
+                - text: These technologies are no longer just for manufacturing; they are increasingly vital for business, data processing, and smart home applications, as discussed in this
+                - link [ref=e341] [cursor=pointer]:
+                  - /url: https://www.ibm.com/think/topics/automation
+                  - text: IBM overview of automation
+                - text: and this
+                - link [ref=e343] [cursor=pointer]:
+                  - /url: https://smythos.com/managers/ops/what-is-automation/
+                  - text: SmythOS article on automation impacts
+                - text: .
+                - button [ref=e346] [cursor=pointer]:
+                  - img [ref=e348]
+            - generic [ref=e356]:
+              - list [ref=e358]:
+                - listitem [ref=e359]:
+                  - generic [ref=e360]:
+                    - link "The Impact Of Technology And Automation On Today's .... Abre em uma nova guia." [ref=e361] [cursor=pointer]:
+                      - /url: https://www.forbes.com/sites/forbesbooksauthors/2021/03/25/the-impact-of-technology-and-automation-on-todays-businesses/#:~:text=Business-,The%20Impact%20Of%20Technology%20And%20Automation%20On%20Today's%20Businesses,of%20a%20solid%20business%20strategy.
+                    - generic [ref=e363]:
+                      - generic [ref=e364]: The Impact Of Technology And Automation On Today's ...
+                      - generic [ref=e365]: 25 de mar. de 2021 — The Impact Of Technology And Automation On Today's Businesses. ByTim T. Mercer, Forbes Books Author. for Forbes Books. AUTHOR POST...
+                      - generic [ref=e366]:
+                        - generic [ref=e371]: Forbes
+                        - button "Sobre este resultado" [ref=e373] [cursor=pointer]:
+                          - img [ref=e374]
+                - listitem [ref=e378]:
+                  - generic [ref=e379]:
+                    - link "What Is Automation? - IBM. Abre em uma nova guia." [ref=e380] [cursor=pointer]:
+                      - /url: https://www.ibm.com/think/topics/automation#:~:text=Automation%20is%20the%20application%20of,applications%E2%80%94such%20as%20home%20automation.
+                    - generic [ref=e382]:
+                      - generic [ref=e383]: What Is Automation? - IBM
+                      - generic [ref=e384]: Automation is the application of technology, programs, robotics or processes to achieve outcomes with minimal human input. Automat...
+                      - generic [ref=e385]:
+                        - generic [ref=e390]: IBM
+                        - button [ref=e392] [cursor=pointer]:
+                          - img [ref=e393]
+                - listitem [ref=e397]:
+                  - generic [ref=e398]:
+                    - link [ref=e399] [cursor=pointer]:
+                      - /url: https://www.spiceworks.com/soft-tech/what-is-automation/#:~:text=What%20Is%20Automation?-,Definition%2C%20Types%2C%20Benefits%2C%20and%20Importance,about%20automation%20from%20this%20article.&text=Automation%20is%20defined%20as%20the,%2C%20benefits%2C%20and%20practical%20significance.
+                    - generic [ref=e401]:
+                      - generic [ref=e402]: What Is Automation? Definition, Types, Benefits, and Importance
+                      - generic [ref=e403]: 26 de fev. de 2024 — Definition, Types, Benefits, and Importance. Automation is the use of machines or technology to perform tasks without much human i...
+                      - generic [ref=e404]:
+                        - generic [ref=e409]: Spiceworks
+                        - button [ref=e411] [cursor=pointer]:
+                          - img [ref=e412]
+              - button [ref=e417] [cursor=pointer]:
+                - generic [ref=e418]: Mostrar tudo
+        - button "Mostrar mais Visões Gerais Criadas por IA" [ref=e422]:
+          - generic [ref=e424] [cursor=pointer]:
+            - generic [ref=e425]: Mostrar mais
+            - img [ref=e427]
+      - main [ref=e430]:
+        - generic [ref=e434]:
+          - generic [ref=e437]:
+            - heading "Web results" [level=2] [ref=e438]
+            - generic [ref=e439]:
+              - generic [ref=e442]:
+                - link "Automation | Technology, Types, Rise, History, & Examples Britannica https://www.britannica.com › auto..." [ref=e444] [cursor=pointer]:
+                  - /url: https://www.britannica.com/technology/automation
+                  - heading "Automation | Technology, Types, Rise, History, & Examples" [level=3] [ref=e445]
+                  - generic [ref=e450]:
+                    - generic [ref=e452]: Britannica
+                    - generic [ref=e454]: https://www.britannica.com › auto...
+                - generic [ref=e455]:
+                  - generic [ref=e456]: ·
+                  - link "Traduzir esta página" [ref=e457] [cursor=pointer]:
+                    - /url: https://www.britannica.com/technology/automation
+                - button "Sobre este resultado" [ref=e458] [cursor=pointer]:
+                  - img [ref=e461]
+              - generic [ref=e464]:
+                - generic [ref=e465]: 28 de mar. de 2026 —
+                - generic [ref=e466]:
+                  - text: Automation,
+                  - emphasis [ref=e467]: application of machines to tasks once performed by human beings
+                  - text: or, increasingly, to tasks that would otherwise be impossible.
+          - generic [ref=e471]:
+            - heading "As pessoas também perguntam" [level=2] [ref=e473]
+            - generic [ref=e474]:
+              - button "What is automation technology?" [ref=e480] [cursor=pointer]:
+                - generic [ref=e482]: What is automation technology?
+                - img [ref=e485]
+              - button "Is RPA better than AI?" [ref=e494] [cursor=pointer]:
+                - generic [ref=e496]: Is RPA better than AI?
+                - img [ref=e499]
+              - button "What is the role of technology and automation?" [ref=e508] [cursor=pointer]:
+                - generic [ref=e510]: What is the role of technology and automation?
+                - img [ref=e513]
+              - button "Are technology and automation the same thing?" [ref=e522] [cursor=pointer]:
+                - generic [ref=e524]: Are technology and automation the same thing?
+                - img [ref=e527]
+          - generic [ref=e532]:
+            - heading "Web results" [level=2] [ref=e533]
+            - generic [ref=e534]:
+              - generic [ref=e537]:
+                - link "The Impact Of Technology And Automation On Today's ... Forbes https://www.forbes.com › sites" [ref=e539] [cursor=pointer]:
+                  - /url: https://www.forbes.com/sites/forbesbooksauthors/2021/03/25/the-impact-of-technology-and-automation-on-todays-businesses/
+                  - heading "The Impact Of Technology And Automation On Today's ..." [level=3] [ref=e540]
+                  - generic [ref=e545]:
+                    - generic [ref=e547]: Forbes
+                    - generic [ref=e549]: https://www.forbes.com › sites
+                - generic [ref=e550]:
+                  - generic [ref=e551]: ·
+                  - link "Traduzir esta página" [ref=e552] [cursor=pointer]:
+                    - /url: https://www.forbes.com/sites/forbesbooksauthors/2021/03/25/the-impact-of-technology-and-automation-on-todays-businesses/
+                - button "Sobre este resultado" [ref=e553] [cursor=pointer]:
+                  - img [ref=e556]
+              - generic [ref=e559]:
+                - generic [ref=e560]: 25 de mar. de 2021 —
+                - generic [ref=e561]:
+                  - text: Some of the advantages that come from these technologies include
+                  - emphasis [ref=e562]: increased productivity, higher rates of production, better quality service
+                  - text: ", and the efficient ..."
+          - generic [ref=e566]:
+            - generic [ref=e568]:
+              - heading "Vídeos" [level=2] [ref=e569]
+              - button "Sobre este resultado" [ref=e570] [cursor=pointer]:
+                - img [ref=e573]
+            - generic [ref=e576]:
+              - generic [ref=e583]:
+                - generic [ref=e584]:
+                  - link "Automation Technology YouTube Northeast Tech 24 de jul. de 2024" [ref=e586] [cursor=pointer]:
+                    - /url: https://www.youtube.com/watch?v=n8rot7czbi4
+                    - heading "Automation Technology YouTube Northeast Tech 24 de jul. de 2024" [level=3] [ref=e587]:
+                      - generic [ref=e590]: Automation Technology
+                      - generic [ref=e592]:
+                        - generic [ref=e593]:
+                          - text: YouTube
+                          - generic [ref=e594]: · Northeast Tech
+                        - generic [ref=e595]: 24 de jul. de 2024
+                  - generic:
+                    - generic:
+                      - generic:
+                        - generic:
+                          - generic:
+                            - text: YouTube
+                            - generic: · Northeast Tech
+                      - button "Sobre este resultado" [ref=e596] [cursor=pointer]:
+                        - img [ref=e599]
+                - button "Automation Technology enviado por Northeast Tech em YouTube. Assistir no Google. 1:51" [ref=e601] [cursor=pointer]:
+                  - generic [ref=e602]:
+                    - img [ref=e608]
+                    - generic [ref=e611]:
+                      - generic [ref=e612]: 1:51
+                      - img [ref=e615]
+              - generic [ref=e621]:
+                - generic [ref=e622]:
+                  - generic [ref=e623]:
+                    - link "Top 10 Industrial Automation Technology Trends for 2025 YouTube LEARNACON 20 de jan. de 2025" [ref=e625] [cursor=pointer]:
+                      - /url: https://www.youtube.com/watch?v=bzMTu-MgpL0
+                      - heading "Top 10 Industrial Automation Technology Trends for 2025 YouTube LEARNACON 20 de jan. de 2025" [level=3] [ref=e626]:
+                        - generic [ref=e629]: Top 10 Industrial Automation Technology Trends for 2025
+                        - generic [ref=e631]:
+                          - generic [ref=e632]:
+                            - text: YouTube
+                            - generic [ref=e633]: · LEARNACON
+                          - generic [ref=e634]: 20 de jan. de 2025
+                    - generic:
+                      - generic:
+                        - generic:
+                          - generic:
+                            - generic:
+                              - text: YouTube
+                              - generic: · LEARNACON
+                        - button "Sobre este resultado" [ref=e635] [cursor=pointer]:
+                          - img [ref=e638]
+                  - button "Top 10 Industrial Automation Technology Trends for 2025 enviado por LEARNACON em YouTube. Assistir no Google. 5:28" [ref=e640] [cursor=pointer]:
+                    - generic [ref=e641]:
+                      - img [ref=e644]
+                      - generic [ref=e647]:
+                        - generic [ref=e648]: 5:28
+                        - img [ref=e651]
+                - button "7 momentos importantes neste vídeo" [ref=e657] [cursor=pointer]:
+                  - generic [ref=e666]:
+                    - generic [ref=e669]: 7 momentos importantes neste vídeo
+                    - img [ref=e671]
+              - generic [ref=e679]:
+                - generic [ref=e680]:
+                  - 'link "Industrial Automation with AI: How Technology Is ... YouTube Profissão Futuro 19 de mar. de 2025" [ref=e682] [cursor=pointer]':
+                    - /url: https://www.youtube.com/watch?v=0CIM0ouQXy0
+                    - 'heading "Industrial Automation with AI: How Technology Is ... YouTube Profissão Futuro 19 de mar. de 2025" [level=3] [ref=e683]':
+                      - generic [ref=e686]: "Industrial Automation with AI: How Technology Is ..."
+                      - generic [ref=e688]:
+                        - generic [ref=e689]:
+                          - text: YouTube
+                          - generic [ref=e690]: · Profissão Futuro
+                        - generic [ref=e691]: 19 de mar. de 2025
+                  - generic:
+                    - generic:
+                      - generic:
+                        - generic:
+                          - generic:
+                            - text: YouTube
+                            - generic: · Profissão Futuro
+                      - button "Sobre este resultado" [ref=e692] [cursor=pointer]:
+                        - img [ref=e695]
+                - 'button "Industrial Automation with AI: How Technology Is ... enviado por Profissão Futuro em YouTube. Assistir no Google. 9:00" [ref=e697] [cursor=pointer]':
+                  - generic [ref=e698]:
+                    - img [ref=e704]
+                    - generic [ref=e707]:
+                      - generic [ref=e708]: 9:00
+                      - img [ref=e711]
+            - link "Ver todos os vídeos" [ref=e715] [cursor=pointer]:
+              - /url: /search?sca_esv=5ed080b9caecffb2&udm=7&q=technology+and+automation&sa=X&ved=2ahUKEwi01b_h-OWTAxV0F7kGHVwxJ0cQ8ccDKAJ6BAhFEAQ
+              - separator [ref=e716]
+              - generic [ref=e717]:
+                - generic [ref=e718]: Ver tudo
+                - img [ref=e720]
+          - generic [ref=e724]:
+            - heading "Web results" [level=2] [ref=e725]
+            - generic [ref=e726]:
+              - generic [ref=e729]:
+                - link "7 Tech Advancements in Automation Precision Honeywell Aerospace https://aerospace.honeywell.com › ..." [ref=e731] [cursor=pointer]:
+                  - /url: https://aerospace.honeywell.com/us/en/about-us/blogs/7-technological-advancements-that-are-revolutionizing-automation-precision
+                  - heading "7 Tech Advancements in Automation Precision" [level=3] [ref=e732]
+                  - generic [ref=e737]:
+                    - generic [ref=e739]: Honeywell Aerospace
+                    - generic [ref=e741]: https://aerospace.honeywell.com › ...
+                - generic [ref=e742]:
+                  - generic [ref=e743]: ·
+                  - link "Traduzir esta página" [ref=e744] [cursor=pointer]:
+                    - /url: https://aerospace.honeywell.com/us/en/about-us/blogs/7-technological-advancements-that-are-revolutionizing-automation-precision
+                - button "Sobre este resultado" [ref=e745] [cursor=pointer]:
+                  - img [ref=e748]
+              - generic [ref=e752]:
+                - text: In the realm of technology,
+                - emphasis [ref=e753]: automation has emerged as a transformative force
+                - text: ", particularly in delivering unparalleled precision across diverse industries."
+          - table [ref=e759]:
+            - rowgroup [ref=e760]:
+              - row "Artigos acadêmicos sobre technology and automation" [ref=e761]:
+                - cell "Artigos acadêmicos sobre technology and automation" [ref=e762]:
+                  - heading "Artigos acadêmicos sobre technology and automation" [level=3] [ref=e763]:
+                    - link "Artigos acadêmicos sobre technology and automation" [ref=e764] [cursor=pointer]:
+                      - /url: https://scholar.google.com.br/scholar?q=technology+and+automation&hl=pt-BR&as_sdt=0&as_vis=1&oi=scholart
+                      - generic [ref=e765]:
+                        - text: Artigos acadêmicos sobre
+                        - emphasis [ref=e766]: technology and automation
+              - row "… -edge technology and automation in the pathology … - ‎Munari - Citado por 71 Technology for automation of weed control in specialty … - ‎Fennimore - Citado por 212 … effects of information technology process automation ( … - ‎Fung - Citado por 271" [ref=e767]:
+                - cell "… -edge technology and automation in the pathology … - ‎Munari - Citado por 71 Technology for automation of weed control in specialty … - ‎Fennimore - Citado por 212 … effects of information technology process automation ( … - ‎Fung - Citado por 271" [ref=e768]:
+                  - heading "… -edge technology and automation in the pathology … - ‎Munari - Citado por 71" [level=3] [ref=e769]:
+                    - link "… -edge technology and automation in the pathology …" [ref=e770] [cursor=pointer]:
+                      - /url: https://scholar.google.com.br/scholar_url?url=https://link.springer.com/article/10.1007/s00428-023-03637-z&hl=pt-BR&sa=X&ei=5lHaaYXWGeeN6rQP_ISD6QM&scisig=ADi0EEWK6DlmwbLdA_wAofGI3Uh8&oi=scholarr
+                      - generic [ref=e771]:
+                        - text: … -edge
+                        - emphasis [ref=e772]: technology
+                        - text: and
+                        - emphasis [ref=e773]: automation
+                        - text: in the pathology …
+                    - generic [ref=e774]:
+                      - text: "-"
+                      - generic [ref=e775]: ‎Munari
+                      - text: "- Citado por 71"
+                  - heading "Technology for automation of weed control in specialty … - ‎Fennimore - Citado por 212" [level=3] [ref=e776]:
+                    - link "Technology for automation of weed control in specialty …" [ref=e777] [cursor=pointer]:
+                      - /url: https://scholar.google.com.br/scholar_url?url=https://www.cambridge.org/core/services/aop-cambridge-core/content/view/795CD08C90935A3BAEA47D71708AD302/S0890037X00022673a.pdf/div-class-title-technology-for-automation-of-weed-control-in-specialty-crops-div.pdf&hl=pt-BR&sa=X&ei=5lHaaYXWGeeN6rQP_ISD6QM&scisig=ADi0EEWRegC5fG7p1Ze6slqnPKfo&oi=scholarr
+                      - generic [ref=e778]:
+                        - emphasis [ref=e779]: Technology
+                        - text: for
+                        - emphasis [ref=e780]: automation
+                        - text: of weed control in specialty …
+                    - generic [ref=e781]:
+                      - text: "-"
+                      - generic [ref=e782]: ‎Fennimore
+                      - text: "- Citado por 212"
+                  - heading "… effects of information technology process automation ( … - ‎Fung - Citado por 271" [level=3] [ref=e783]:
+                    - link "… effects of information technology process automation ( …" [ref=e784] [cursor=pointer]:
+                      - /url: https://scholar.google.com.br/scholar_url?url=https://papers.ssrn.com/sol3/Delivery.cfm%3Fabstractid%3D2588999&hl=pt-BR&sa=X&ei=5lHaaYXWGeeN6rQP_ISD6QM&scisig=ADi0EEXtC-uRAT4iB2kIh0wEINKW&oi=scholarr
+                      - generic [ref=e785]:
+                        - text: … effects of information
+                        - emphasis [ref=e786]: technology
+                        - text: process
+                        - emphasis [ref=e787]: automation
+                        - text: ( …
+                    - generic [ref=e788]:
+                      - text: "-"
+                      - generic [ref=e789]: ‎Fung
+                      - text: "- Citado por 271"
+          - generic [ref=e792]:
+            - heading "Web results" [level=2] [ref=e793]
+            - generic [ref=e794]:
+              - generic [ref=e797]:
+                - link "Top 5 Automation Technologies You Should Know alligatorautomations.com.au https://www.alligatorautomations.com.au › ..." [ref=e799] [cursor=pointer]:
+                  - /url: https://www.alligatorautomations.com.au/top-automation-technologies-you-should-know/
+                  - heading "Top 5 Automation Technologies You Should Know" [level=3] [ref=e800]
+                  - generic [ref=e805]:
+                    - generic [ref=e807]: alligatorautomations.com.au
+                    - generic [ref=e809]: https://www.alligatorautomations.com.au › ...
+                - generic [ref=e810]:
+                  - generic [ref=e811]: ·
+                  - link "Traduzir esta página" [ref=e812] [cursor=pointer]:
+                    - /url: https://www.alligatorautomations.com.au/top-automation-technologies-you-should-know/
+                - button "Sobre este resultado" [ref=e813] [cursor=pointer]:
+                  - img [ref=e816]
+              - generic [ref=e820]:
+                - text: Top 5 Automation Technologies You Should Know ·
+                - emphasis [ref=e821]: 1. Robotic Process Automation (RPA
+                - text: ) · 2. Artificial Intelligence (AI) & Machine Learning (ML) Automation · 3.
+          - generic [ref=e825]:
+            - generic [ref=e828]:
+              - link "What Is Automation Engineering Technology? Baker College https://www.baker.edu › blog" [ref=e830] [cursor=pointer]:
+                - /url: https://www.baker.edu/about/get-to-know-us/blog/what-is-automation-engineering/
+                - heading "What Is Automation Engineering Technology?" [level=3] [ref=e831]
+                - generic [ref=e836]:
+                  - generic [ref=e838]: Baker College
+                  - generic [ref=e840]: https://www.baker.edu › blog
+              - generic [ref=e841]:
+                - generic [ref=e842]: ·
+                - link "Traduzir esta página" [ref=e843] [cursor=pointer]:
+                  - /url: https://www.baker.edu/about/get-to-know-us/blog/what-is-automation-engineering/
+              - button "Sobre este resultado" [ref=e844] [cursor=pointer]:
+                - img [ref=e847]
+            - generic [ref=e850]:
+              - generic [ref=e851]: 4 de jun. de 2024 —
+              - generic [ref=e852]:
+                - emphasis [ref=e853]: Automation engineering draws on cutting-edge technologies
+                - text: to develop computer or robot-driven systems and processes that limit the need for humans to handle ...
+          - generic [ref=e857]:
+            - generic [ref=e860]:
+              - link "Understanding automation Red Hat https://www.redhat.com › topics" [ref=e862] [cursor=pointer]:
+                - /url: https://www.redhat.com/en/topics/automation
+                - heading "Understanding automation" [level=3] [ref=e863]
+                - generic [ref=e868]:
+                  - generic [ref=e870]: Red Hat
+                  - generic [ref=e872]: https://www.redhat.com › topics
+              - generic [ref=e873]:
+                - generic [ref=e874]: ·
+                - link "Traduzir esta página" [ref=e875] [cursor=pointer]:
+                  - /url: https://www.redhat.com/en/topics/automation
+              - button "Sobre este resultado" [ref=e876] [cursor=pointer]:
+                - img [ref=e879]
+            - generic [ref=e882]:
+              - generic [ref=e883]: 29 de jan. de 2025 —
+              - generic [ref=e884]:
+                - emphasis [ref=e885]: Automation is the use of technology to perform tasks
+                - text: with reduced human assistance. Any industry that encounters repetitive tasks can use automation.
+          - generic [ref=e889]:
+            - generic [ref=e892]:
+              - link "What Is Automation? IBM https://www.ibm.com › topics" [ref=e894] [cursor=pointer]:
+                - /url: https://www.ibm.com/think/topics/automation
+                - heading "What Is Automation?" [level=3] [ref=e895]
+                - generic [ref=e900]:
+                  - generic [ref=e902]: IBM
+                  - generic [ref=e904]: https://www.ibm.com › topics
+              - generic [ref=e905]:
+                - generic [ref=e906]: ·
+                - link "Traduzir esta página" [ref=e907] [cursor=pointer]:
+                  - /url: https://www.ibm.com/think/topics/automation
+              - button "Sobre este resultado" [ref=e908] [cursor=pointer]:
+                - img [ref=e911]
+            - generic [ref=e915]:
+              - text: Automation is the
+              - emphasis [ref=e916]: application of technology, programs, robotics or processes
+              - text: to achieve outcomes with minimal human input.
+          - generic [ref=e920]:
+            - generic [ref=e923]:
+              - link "What is Technology and Automation? Exploring Their Impact ... intertechmachines.com https://www.intertechmachines.com › ..." [ref=e925] [cursor=pointer]:
+                - /url: https://www.intertechmachines.com/blog/technology-and-automation-impact-on-our-future/
+                - heading "What is Technology and Automation? Exploring Their Impact ..." [level=3] [ref=e926]
+                - generic [ref=e931]:
+                  - generic [ref=e933]: intertechmachines.com
+                  - generic [ref=e935]: https://www.intertechmachines.com › ...
+              - generic [ref=e936]:
+                - generic [ref=e937]: ·
+                - link "Traduzir esta página" [ref=e938] [cursor=pointer]:
+                  - /url: https://www.intertechmachines.com/blog/technology-and-automation-impact-on-our-future/
+              - button "Sobre este resultado" [ref=e939] [cursor=pointer]:
+                - img [ref=e942]
+            - generic [ref=e946]:
+              - text: At its core,
+              - emphasis [ref=e947]: automation refers to the use of technology to perform tasks
+              - text: with minimal human intervention, resulting in increased efficiency and precision. This ...
+          - generic [ref=e951]:
+            - generic [ref=e954]:
+              - link "AUTOMATION AND ROBOTICS TECHNOLOGY Prefeitura de Aracaju https://prefeitura.aracaju.se.gov.br › AgnRp6 › aut..." [ref=e956] [cursor=pointer]:
+                - /url: https://prefeitura.aracaju.se.gov.br/virtual-library/AgnRp6/8AD258/automation-and_robotics-technology.pdf
+                - heading "AUTOMATION AND ROBOTICS TECHNOLOGY" [level=3] [ref=e957]
+                - generic [ref=e962]:
+                  - generic [ref=e964]: Prefeitura de Aracaju
+                  - generic [ref=e966]: https://prefeitura.aracaju.se.gov.br › AgnRp6 › aut...
+              - generic [ref=e967]:
+                - generic:
+                  - generic: PDF
+              - button "Sobre este resultado" [ref=e968] [cursor=pointer]:
+                - img [ref=e971]
+            - generic [ref=e974]:
+              - generic [ref=e975]: há 5 dias —
+              - generic [ref=e976]:
+                - text: As artificial intelligence and machine learning continue to advance,
+                - emphasis [ref=e977]: automation and robotics technology
+                - text: will become smarter and more autonomous.
+        - generic [ref=e979]:
+          - generic [ref=e984]:
+            - heading "Outras pessoas pesquisaram" [level=2] [ref=e986]
+            - generic [ref=e988]:
+              - generic [ref=e989]:
+                - link "Types of automation" [ref=e993] [cursor=pointer]:
+                  - /url: /search?sca_esv=5ed080b9caecffb2&q=Types+of+automation&sa=X&ved=2ahUKEwi01b_h-OWTAxV0F7kGHVwxJ0cQ1QJ6BAhKEAE
+                  - generic [ref=e994]:
+                    - generic [ref=e999]: Types of automation
+                    - img [ref=e1003]
+                - link "Importance of automation" [ref=e1008] [cursor=pointer]:
+                  - /url: /search?sca_esv=5ed080b9caecffb2&q=Importance+of+automation&sa=X&ved=2ahUKEwi01b_h-OWTAxV0F7kGHVwxJ0cQ1QJ6BAhNEAE
+                  - generic [ref=e1009]:
+                    - generic [ref=e1014]: Importance of automation
+                    - img [ref=e1018]
+                - link "History of automation technology" [ref=e1023] [cursor=pointer]:
+                  - /url: /search?sca_esv=5ed080b9caecffb2&q=History+of+automation+technology&sa=X&ved=2ahUKEwi01b_h-OWTAxV0F7kGHVwxJ0cQ1QJ6BAhMEAE
+                  - generic [ref=e1024]:
+                    - generic [ref=e1029]: History of automation technology
+                    - img [ref=e1033]
+                - link "Automation machine" [ref=e1038] [cursor=pointer]:
+                  - /url: /search?sca_esv=5ed080b9caecffb2&q=Automation+machine&sa=X&ved=2ahUKEwi01b_h-OWTAxV0F7kGHVwxJ0cQ1QJ6BAhLEAE
+                  - generic [ref=e1039]:
+                    - generic [ref=e1044]: Automation machine
+                    - img [ref=e1048]
+              - generic [ref=e1050]:
+                - link "Automation Technology courses" [ref=e1054] [cursor=pointer]:
+                  - /url: /search?sca_esv=5ed080b9caecffb2&q=Automation+Technology+courses&sa=X&ved=2ahUKEwi01b_h-OWTAxV0F7kGHVwxJ0cQ1QJ6BAhIEAE
+                  - generic [ref=e1055]:
+                    - generic [ref=e1060]: Automation Technology courses
+                    - img [ref=e1064]
+                - link "Automation examples" [ref=e1069] [cursor=pointer]:
+                  - /url: /search?sca_esv=5ed080b9caecffb2&q=Automation+examples&sa=X&ved=2ahUKEwi01b_h-OWTAxV0F7kGHVwxJ0cQ1QJ6BAhGEAE
+                  - generic [ref=e1070]:
+                    - generic [ref=e1075]: Automation examples
+                    - img [ref=e1079]
+                - link "Father of automation" [ref=e1084] [cursor=pointer]:
+                  - /url: /search?sca_esv=5ed080b9caecffb2&q=Father+of+automation&sa=X&ved=2ahUKEwi01b_h-OWTAxV0F7kGHVwxJ0cQ1QJ6BAhHEAE
+                  - generic [ref=e1085]:
+                    - generic [ref=e1090]: Father of automation
+                    - img [ref=e1094]
+                - link "Automation technology software" [ref=e1099] [cursor=pointer]:
+                  - /url: /search?sca_esv=5ed080b9caecffb2&q=Automation+technology+software&sa=X&ved=2ahUKEwi01b_h-OWTAxV0F7kGHVwxJ0cQ1QJ6BAhJEAE
+                  - generic [ref=e1100]:
+                    - generic [ref=e1105]: Automation technology software
+                    - img [ref=e1109]
+          - navigation [ref=e1111]:
+            - heading "Navegação nas páginas" [level=1] [ref=e1112]
+            - text: "1"
+            - link "Page 2" [ref=e1115] [cursor=pointer]:
+              - /url: /search?q=technology+and+automation&sca_esv=5ed080b9caecffb2&ei=5lHaabTKEPSu5OUP3OKcuQQ&start=10&sa=N&sstk=Af77f_cYasWTDb6xFBYEp1jiHEzRSxCMsTNyQgiNTGji3Cq9ROt-1CNGvsaLNAzxncuEeWbwFsuTpB2CuEpsOpmhM3BlE_CMi4xduA&ved=2ahUKEwi01b_h-OWTAxV0F7kGHVwxJ0cQ8tMDegQICBAE
+              - text: "2"
+            - link "Page 3" [ref=e1117] [cursor=pointer]:
+              - /url: /search?q=technology+and+automation&sca_esv=5ed080b9caecffb2&ei=5lHaabTKEPSu5OUP3OKcuQQ&start=20&sa=N&sstk=Af77f_cYasWTDb6xFBYEp1jiHEzRSxCMsTNyQgiNTGji3Cq9ROt-1CNGvsaLNAzxncuEeWbwFsuTpB2CuEpsOpmhM3BlE_CMi4xduA&ved=2ahUKEwi01b_h-OWTAxV0F7kGHVwxJ0cQ8tMDegQICBAG
+              - text: "3"
+            - link "Page 4" [ref=e1119] [cursor=pointer]:
+              - /url: /search?q=technology+and+automation&sca_esv=5ed080b9caecffb2&ei=5lHaabTKEPSu5OUP3OKcuQQ&start=30&sa=N&sstk=Af77f_cYasWTDb6xFBYEp1jiHEzRSxCMsTNyQgiNTGji3Cq9ROt-1CNGvsaLNAzxncuEeWbwFsuTpB2CuEpsOpmhM3BlE_CMi4xduA&ved=2ahUKEwi01b_h-OWTAxV0F7kGHVwxJ0cQ8tMDegQICBAI
+              - text: "4"
+            - link "Page 5" [ref=e1121] [cursor=pointer]:
+              - /url: /search?q=technology+and+automation&sca_esv=5ed080b9caecffb2&ei=5lHaabTKEPSu5OUP3OKcuQQ&start=40&sa=N&sstk=Af77f_cYasWTDb6xFBYEp1jiHEzRSxCMsTNyQgiNTGji3Cq9ROt-1CNGvsaLNAzxncuEeWbwFsuTpB2CuEpsOpmhM3BlE_CMi4xduA&ved=2ahUKEwi01b_h-OWTAxV0F7kGHVwxJ0cQ8tMDegQICBAK
+              - text: "5"
+            - link "Page 6" [ref=e1123] [cursor=pointer]:
+              - /url: /search?q=technology+and+automation&sca_esv=5ed080b9caecffb2&ei=5lHaabTKEPSu5OUP3OKcuQQ&start=50&sa=N&sstk=Af77f_cYasWTDb6xFBYEp1jiHEzRSxCMsTNyQgiNTGji3Cq9ROt-1CNGvsaLNAzxncuEeWbwFsuTpB2CuEpsOpmhM3BlE_CMi4xduA&ved=2ahUKEwi01b_h-OWTAxV0F7kGHVwxJ0cQ8tMDegQICBAM
+              - text: "6"
+            - link "Page 7" [ref=e1125] [cursor=pointer]:
+              - /url: /search?q=technology+and+automation&sca_esv=5ed080b9caecffb2&ei=5lHaabTKEPSu5OUP3OKcuQQ&start=60&sa=N&sstk=Af77f_cYasWTDb6xFBYEp1jiHEzRSxCMsTNyQgiNTGji3Cq9ROt-1CNGvsaLNAzxncuEeWbwFsuTpB2CuEpsOpmhM3BlE_CMi4xduA&ved=2ahUKEwi01b_h-OWTAxV0F7kGHVwxJ0cQ8tMDegQICBAO
+              - text: "7"
+            - link "Page 8" [ref=e1127] [cursor=pointer]:
+              - /url: /search?q=technology+and+automation&sca_esv=5ed080b9caecffb2&ei=5lHaabTKEPSu5OUP3OKcuQQ&start=70&sa=N&sstk=Af77f_cYasWTDb6xFBYEp1jiHEzRSxCMsTNyQgiNTGji3Cq9ROt-1CNGvsaLNAzxncuEeWbwFsuTpB2CuEpsOpmhM3BlE_CMi4xduA&ved=2ahUKEwi01b_h-OWTAxV0F7kGHVwxJ0cQ8tMDegQICBAQ
+              - text: "8"
+            - link "Page 9" [ref=e1129] [cursor=pointer]:
+              - /url: /search?q=technology+and+automation&sca_esv=5ed080b9caecffb2&ei=5lHaabTKEPSu5OUP3OKcuQQ&start=80&sa=N&sstk=Af77f_cYasWTDb6xFBYEp1jiHEzRSxCMsTNyQgiNTGji3Cq9ROt-1CNGvsaLNAzxncuEeWbwFsuTpB2CuEpsOpmhM3BlE_CMi4xduA&ved=2ahUKEwi01b_h-OWTAxV0F7kGHVwxJ0cQ8tMDegQICBAS
+              - text: "9"
+            - link "Page 10" [ref=e1131] [cursor=pointer]:
+              - /url: /search?q=technology+and+automation&sca_esv=5ed080b9caecffb2&ei=5lHaabTKEPSu5OUP3OKcuQQ&start=90&sa=N&sstk=Af77f_cYasWTDb6xFBYEp1jiHEzRSxCMsTNyQgiNTGji3Cq9ROt-1CNGvsaLNAzxncuEeWbwFsuTpB2CuEpsOpmhM3BlE_CMi4xduA&ved=2ahUKEwi01b_h-OWTAxV0F7kGHVwxJ0cQ8tMDegQICBAU
+              - text: "10"
+            - heading "Mais" [level=2] [ref=e1133]:
+              - link "Mais" [ref=e1134] [cursor=pointer]:
+                - /url: /search?q=technology+and+automation&sca_esv=5ed080b9caecffb2&ei=5lHaabTKEPSu5OUP3OKcuQQ&start=10&sa=N&sstk=Af77f_cYasWTDb6xFBYEp1jiHEzRSxCMsTNyQgiNTGji3Cq9ROt-1CNGvsaLNAzxncuEeWbwFsuTpB2CuEpsOpmhM3BlE_CMi4xduA&ved=2ahUKEwi01b_h-OWTAxV0F7kGHVwxJ0cQ8NMDegQICBAW
+                - generic [ref=e1136]: Mais
+        - navigation
+    - contentinfo [ref=e1137]:
+      - heading "Links do rodapé" [level=1] [ref=e1138]
+      - generic [ref=e1142]:
+        - generic [ref=e1144]:
+          - text: Brasil
+          - generic [ref=e1146]:
+            - button "13401, Piracicaba - SP - Do seu endereço IP" [ref=e1148] [cursor=pointer]:
+              - generic [ref=e1149]: 13401, Piracicaba - SP
+              - generic [ref=e1151]:
+                - text: "-"
+                - generic [ref=e1152]: Do seu endereço IP
+            - text: "-"
+            - button "Atualizar local" [ref=e1154] [cursor=pointer]: Atualizar local
+        - generic [ref=e1157]:
+          - link "Ajuda" [ref=e1158] [cursor=pointer]:
+            - /url: https://support.google.com/websearch/?p=ws_results_help&hl=pt-BR&fg=1
+          - link "Enviar feedback" [ref=e1159] [cursor=pointer]:
+            - /url: "#"
+          - link "Privacidade" [ref=e1160] [cursor=pointer]:
+            - /url: https://policies.google.com/privacy?hl=pt-BR&fg=1
+          - link "Termos" [ref=e1161] [cursor=pointer]:
+            - /url: https://policies.google.com/terms?hl=pt-BR&fg=1
