@@ -122,12 +122,14 @@
 
             <div id="log-console"></div>
 
-            <div id="right-bottom-container">
-                <div id="control-panel">
-                    <button class="cmd-btn" onclick="sendCommand('analyze')">Scan</button>
-                    <button class="cmd-btn special" onclick="sendCommand('analyze_and_search')">HOMES Search</button>
-                    <button class="cmd-btn warn" onclick="sendCommand('close_browser')">Terminate</button>
-                </div>
+            <!-- Button Panel -->
+            <div id="button-panel">
+                <button class="cmd-btn" id="track-btn" onclick="toggleTracking()">Tracking: OFF</button>
+                <button class="cmd-btn" onclick="sendCommand('analyze')">Scan</button>
+                <button class="cmd-btn special" onclick="sendCommand('analyze_and_search')">HOMES Search</button>
+                <button class="cmd-btn warn" onclick="sendCommand('close_browser')">Terminate</button>
+            </div>
+
                 <div id="diag-panel">
                     <div id="fps">FPS: 00</div>
                     <div id="mem-status" style="color: var(--accent-color); margin: 4px 0;">MEM: BUFFER_SYNC_ACTIVE</div>
@@ -166,6 +168,17 @@
             let cameraVideo = null;
             let captureCanvas = null;
             let isAnalyzing = false;
+            let isTrackingEnabled = false;
+
+            function toggleTracking() {
+                isTrackingEnabled = !isTrackingEnabled;
+                const btn = document.getElementById('track-btn');
+                btn.innerText = isTrackingEnabled ? "Tracking: ON" : "Tracking: OFF";
+                btn.style.borderColor = isTrackingEnabled ? "var(--accent-color)" : "rgba(0, 242, 255, 0.3)";
+                addLog(`SYSTEM: HAND_TRACKING_${isTrackingEnabled ? 'ENABLED' : 'DISABLED'}`, isTrackingEnabled ? "var(--accent-color)" : "var(--warn-color)");
+                
+                if (isTrackingEnabled) ensureBrowserCamera();
+            }
 
             async function ensureBrowserCamera() {
                 if (browserCameraStream) return true;
@@ -198,13 +211,13 @@
             // Loop de rastreamento de mão em tempo real
             async function startHandTrackingLoop() {
                 while (browserCameraStream) {
-                    if (ws && ws.readyState === WebSocket.OPEN && !isAnalyzing) {
+                    if (ws && ws.readyState === WebSocket.OPEN && isTrackingEnabled && !isAnalyzing) {
                         const frame = await captureFrameBase64();
                         if (frame) {
                             ws.send(JSON.stringify({ type: "frame", image: frame }));
                         }
                     }
-                    // Espera 100ms (10 FPS) para não sobrecarregar a rede do Render
+                    // 100ms (10 FPS)
                     await new_delay(100);
                 }
             }
@@ -334,7 +347,9 @@
                         const data = JSON.parse(event.data);
                         if (data.type === 'gesture') {
                             lastDataTime = Date.now();
-                            updateHUD(data);
+                            if (isTrackingEnabled) {
+                                updateHUD(data);
+                            }
                         } else if (data.type === 'status_update') {
                             statusEl.innerText = data.message;
                             addLog(data.message, 'var(--warn-color)');
