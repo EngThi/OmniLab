@@ -60,6 +60,47 @@
                 display: flex; gap: 8px; margin-bottom: 15px;
                 flex-wrap: wrap; justify-content: flex-end;
                 max-width: 350px;
+                pointer-events: auto;
+            }
+
+            #search-box {
+                background: rgba(0,0,0,0.6);
+                border: 1px solid var(--text-color);
+                color: var(--text-color);
+                padding: 8px;
+                font-family: 'Courier New', monospace;
+                width: 200px;
+                font-size: 0.8em;
+                outline: none;
+            }
+
+            #browser-view {
+                position: absolute; top: 50%; left: 50%;
+                transform: translate(-50%, -50%);
+                width: 80%; height: 70%;
+                background: rgba(0,0,0,0.9);
+                border: 2px solid var(--text-color);
+                display: none;
+                flex-direction: column;
+                z-index: 2000;
+                pointer-events: auto;
+            }
+
+            #browser-header {
+                background: var(--text-color);
+                color: #000;
+                padding: 5px 15px;
+                display: flex; justify-content: space-between;
+                font-weight: bold; font-size: 0.8em;
+            }
+
+            #close-browser-view { cursor: pointer; }
+
+            #browser-content {
+                flex: 1;
+                width: 100%;
+                object-fit: contain;
+                background: #111;
             }
 
             .cmd-btn {
@@ -131,21 +172,31 @@
 
             <!-- Button Panel -->
             <div id="button-panel">
-                <button class="cmd-btn" id="track-btn" onclick="toggleTracking()">Tracking: OFF</button>
-                <button class="cmd-btn" onclick="sendCommand('analyze')">Scan</button>
-                <button class="cmd-btn special" onclick="sendCommand('analyze_and_search')">HOMES Search</button>
-                <button class="cmd-btn warn" onclick="sendCommand('close_browser')">Terminate</button>
-            </div>
-
-                <div id="diag-panel">
-                    <div id="fps">FPS: 00</div>
-                    <div id="mem-status" style="color: var(--accent-color); margin: 4px 0;">MEM: BUFFER_SYNC_ACTIVE</div>
-                    <div id="model">CORE: GEMINI-3.1-LITE</div>
+                <div id="right-bottom-container">
+                    <div id="control-panel">
+                        <input type="text" id="search-box" placeholder="URL OR SEARCH..." />
+                        <button class="cmd-btn" onclick="sendCommand('analyze')">Scan</button>
+                        <button class="cmd-btn special" onclick="sendCommand('analyze_and_search')">HOMES Search</button>
+                        <button class="cmd-btn warn" onclick="sendCommand('close_browser')">Terminate</button>
+                    </div>
+                    <div id="diag-panel">
+                        <div id="fps">FPS: 00</div>
+                        <div id="mem-status" style="color: var(--accent-color); margin: 4px 0;">MEM: BUFFER_SYNC_ACTIVE</div>
+                        <div id="model">CORE: GEMINI-3.1-LITE</div>
+                    </div>
                 </div>
-            </div>
-        </div>
 
-        <script>
+                <div id="browser-view">
+                    <div id="browser-header">
+                        <span>REMOTE_BROWSER_FEED</span>
+                        <span id="close-browser-view" onclick="hideBrowser()">[X]</span>
+                    </div>
+                    <img id="browser-content" src="" />
+                </div>
+                </div>
+
+                <script>
+
             const scene = new THREE.Scene();
             const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
             const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true});
@@ -300,24 +351,51 @@
                 if (logConsole.childNodes.length > 10) logConsole.lastChild.remove();
             }
 
-            async function sendCommand(cmd) {
+            function sendCommand(cmd) {
                 addLog(`MANUAL_CMD: ${cmd.toUpperCase()}`, "var(--accent-color)");
+                
                 if (cmd === "analyze") {
-                    await runBrowserAnalyze(false);
+                    runBrowserAnalyze(false);
                     return;
                 }
+
                 if (cmd === "analyze_and_search") {
-                    await runBrowserAnalyze(true);
+                    const searchVal = document.getElementById("search-box").value;
+                    if (searchVal) {
+                        addLog(`WEB: SEARCH_FOR: ${searchVal}`, "var(--accent-color)");
+                        if (ws && ws.readyState === WebSocket.OPEN) {
+                            ws.send(JSON.stringify({ 
+                                type: "command", 
+                                command: "analyze_and_search", 
+                                query: searchVal 
+                            }));
+                        }
+                    } else {
+                        // Se vazio, faz análise normal com autoSearch=true (usa IA)
+                        runBrowserAnalyze(true);
+                    }
                     return;
                 }
+
                 if (cmd === "close_browser") {
+                    hideBrowser();
                     if (ws && ws.readyState === WebSocket.OPEN) {
                         ws.send(JSON.stringify({ type: "command", command: cmd }));
                         addLog("TERMINATE_SIGNAL: SENT", "var(--warn-color)");
-                    } else {
-                        addLog("TERMINATING_VIRTUAL_SESSION...", "var(--warn-color)");
                     }
                 }
+            }
+
+            function hideBrowser() {
+                document.getElementById('browser-view').style.display = 'none';
+            }
+
+            function showBrowser(base64Data) {
+                const view = document.getElementById('browser-view');
+                const img = document.getElementById('browser-content');
+                img.src = `data:image/jpeg;base64,${base64Data}`;
+                view.style.display = 'flex';
+                addLog("BROWSER_FEED: UPDATED", "var(--accent-color)");
             }
 
             function speak(text) {
@@ -354,15 +432,15 @@
                         const data = JSON.parse(event.data);
                         if (data.type === 'gesture') {
                             lastDataTime = Date.now();
-                            if (isTrackingEnabled) {
-                                updateHUD(data);
-                            }
+                            updateHUD(data);
                         } else if (data.type === 'status_update') {
                             statusEl.innerText = data.message;
                             addLog(data.message, 'var(--warn-color)');
                         } else if (data.type === 'analysis_result') {
                             addLog(`ANALYSIS: ${data.text}`, '#fff');
                             speak(data.text);
+                        } else if (data.type === 'browser_screenshot') {
+                            showBrowser(data.data);
                         }
                     };
                     ws.onclose = () => { if (!demoInterval) startDemoMode(); setTimeout(connect, 5000); };
