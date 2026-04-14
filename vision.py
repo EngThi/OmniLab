@@ -96,51 +96,66 @@ def vision_loop():
     fps_counter = 0
     fps = 0
 
-    print("[\033[92mONLINE\033[0m] MediaPipe Cloud Stream Ready")
+    # Tenta abrir webcam local como fallback
+    cap = cv2.VideoCapture(0)
+    
+    print("[\033[92mONLINE\033[0m] MediaPipe Vision Engine Active")
     
     with vision.HandLandmarker.create_from_options(options) as landmarker:
         while running:
+            frame = None
+            source = "CLOUD"
+            
+            # 1. Tenta pegar frame da fila (vinde do Browser via WebSocket)
             try:
-                # Agora pegamos o frame da fila enviada pelo Browser
-                frame = frame_queue.get(timeout=1.0)
-                fps_counter += 1
-                if (time.time() - fps_start_time) > 1:
-                    fps, fps_counter, fps_start_time = fps_counter, 0, time.time()
+                frame = frame_queue.get(timeout=0.01)
+            except queue.Empty:
+                # 2. Se não houver frame na fila, tenta a webcam local
+                if cap.isOpened():
+                    success, img = cap.read()
+                    if success:
+                        frame = img
+                        source = "LOCAL"
 
-                img_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=img_rgb)
-                timestamp = int(time.time() * 1000)
-                results = landmarker.detect_for_video(mp_image, timestamp)
+            if frame is None:
+                time.sleep(0.01)
+                continue
 
-                gesture_name, pinch_progress, x, y = "none", 0.0, 0.5, 0.5
-                if results.hand_landmarks:
-                    landmarks = results.hand_landmarks[0]
-                    gesture_name, dist, x, y = detect_gesture_type(landmarks, prev_landmarks)
-                    prev_landmarks = landmarks
-                    if gesture_name == "pinch":
-                        if pinch_start_time is None: pinch_start_time = timestamp
-                        else: pinch_progress = min((timestamp - pinch_start_time) / PINCH_THRESHOLD_MS, 1.0)
-                    else:
-                        pinch_start_time = None
-                        if gesture_name in ["swipe_left", "swipe_right", "thumbs_up", "fist"] and time.time() - last_gesture_time < GESTURE_COOLDOWN:
-                            gesture_name = "none"
-                        elif gesture_name != "none": last_gesture_time = time.time()
+            fps_counter += 1
+            if (time.time() - fps_start_time) > 1:
+                fps, fps_counter, fps_start_time = fps_counter, 0, time.time()
 
-                payload = {"type": "gesture", "gesture": gesture_name, "x": float(x), "y": float(y), "pinch_progress": float(pinch_progress), "fps": fps, "timestamp": timestamp}
-                try:
-                    if not gesture_queue.full(): gesture_queue.put_nowait(payload)
-                except: pass
+            img_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=img_rgb)
+            timestamp = int(time.time() * 1000)
+            results = landmarker.detect_for_video(mp_image, timestamp)
 
-            except Exception as e:
-                print(f"Vision Error: {e}")
-                time.sleep(0.1)
+            gesture_name, pinch_progress, x, y = "none", 0.0, 0.5, 0.5
+            if results.hand_landmarks:
+                landmarks = results.hand_landmarks[0]
+                gesture_name, dist, x, y = detect_gesture_type(landmarks, prev_landmarks)
+                prev_landmarks = landmarks
+                if gesture_name == "pinch":
+                    if pinch_start_time is None: pinch_start_time = timestamp
+                    else: pinch_progress = min((timestamp - pinch_start_time) / PINCH_THRESHOLD_MS, 1.0)
+                else:
+                    pinch_start_time = None
+                    if gesture_name in ["swipe_left", "swipe_right", "thumbs_up", "fist"] and time.time() - last_gesture_time < GESTURE_COOLDOWN:
+                        gesture_name = "none"
+                    elif gesture_name != "none": last_gesture_time = time.time()
+
+            payload = {"type": "gesture", "gesture": gesture_name, "x": float(x), "y": float(y), "pinch_progress": float(pinch_progress), "fps": fps, "timestamp": timestamp}
+            
+            try:
+                if not gesture_queue.full(): gesture_queue.put_nowait(payload)
+            except: pass
 
             if os.getenv("SHOW_VISION") == "true":
-                cv2.putText(frame, f"GESTURE: {gesture_name.upper()}", (10, 30), 1, 1.5, (0,255,0), 2)
+                cv2.putText(frame, f"SRC:{source} GESTURE: {gesture_name.upper()}", (10, 30), 1, 1.5, (0,255,0), 2)
                 cv2.imshow("OmniLab Vision", frame)
                 if cv2.waitKey(1) & 0xFF == ord('q'): running = False
 
-    cap.release()
+    if cap.isOpened(): cap.release()
     cv2.destroyAllWindows()
 
 import base64
