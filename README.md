@@ -1,5 +1,9 @@
 # OmniLab
 
+> [!IMPORTANT]
+> Reviewer, the Playwright system in this case needs a physical screen (like a monitor) to function, so I left it as `HEADED`. Since the Render deployment server doesn't have that, only the processing part here won't be visible.
+
+
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
