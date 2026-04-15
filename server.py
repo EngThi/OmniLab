@@ -38,7 +38,15 @@ _response_cycle = itertools.cycle(DEMO_RESPONSES)
 
 api_key = os.getenv("GEMINI_API_KEY")
 client = genai.Client(api_key=api_key) if api_key and not DEMO_MODE else None
-model_id = 'gemini-3.1-flash-lite-preview'
+
+# Roteador de Modelos (Fallback)
+MODEL_LIST = [
+    'gemini-2.0-flash-lite-preview-02-05',
+    'gemini-2.0-flash',
+    'gemini-1.5-flash',
+    'gemini-1.5-flash-8b'
+]
+model_id = MODEL_LIST[0]
 
 from playwright_stealth import Stealth
 
@@ -231,7 +239,15 @@ async def capture_screenshot(url: str) -> str:
         print(f"📡 [Playwright] Iniciando captura: {url}")
         browser = await p.chromium.launch(
             headless=True,
-            args=["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"]
+            args=[
+                "--no-sandbox", 
+                "--disable-setuid-sandbox", 
+                "--disable-dev-shm-usage",
+                "--disable-gpu",
+                "--no-first-run",
+                "--no-zygote",
+                "--disable-extensions"
+            ]
         )
         try:
             context = await browser.new_context(viewport={'width': 1280, 'height': 720})
@@ -272,6 +288,32 @@ async def handle_agent_action(action: str, ws_target: WebSocket):
         await ws_target.send_json({"type": "status_update", "message": "EMERGENCY_STOP: KILLING_AGENT"})
         await mcp_bridge.stop()
 
+async def _call_gemini_with_fallback(optimized_image, prompt_parts):
+    """Tenta chamar o Gemini com fallback entre vários modelos."""
+    last_error = None
+    for m_id in MODEL_LIST:
+        try:
+            print(f"🤖 [AI] Ativando modelo: {m_id}")
+            response = await asyncio.to_thread(
+                client.models.generate_content,
+                model=m_id,
+                contents=[types.Content(role="user", parts=[
+                    types.Part.from_bytes(mime_type="image/jpeg", data=optimized_image),
+                    types.Part.from_text(text=f"CONTEXT: {prompt_parts}\n\n" + 
+                        "TASK: Analyze the image. If there are people or objects, identify them. " +
+                        "If you see text, summarize it. Keep it tactical and short (HUD style). " +
+                        "At the end, suggest a SEARCH QUERY in square brackets, like [search: topic].")
+                ])]
+            )
+            return response.text, m_id
+        except Exception as e:
+            last_error = str(e)
+            print(f"⚠️ [AI] Erro no modelo {m_id}: {last_error[:50]}...")
+            if "429" in last_error or "quota" in last_error.lower() or "demand" in last_error.lower():
+                continue # Tenta o próximo
+            break # Erro fatal (ex: chave inválida)
+    raise Exception(f"Todos os modelos falharam: {last_error}")
+
 @app.post("/analyze")
 async def analyze_frame(request: AnalyzeRequest):
     global cognitive_memory, _response_cycle, last_analysis_result
@@ -293,23 +335,25 @@ async def analyze_frame(request: AnalyzeRequest):
 
         history_context = " | ".join(cognitive_memory[-3:]) if cognitive_memory else "None"
         
-        response = await asyncio.to_thread(
-            client.models.generate_content,
-            model=model_id,
-            contents=[types.Content(role="user", parts=[
-                types.Part.from_bytes(mime_type="image/jpeg", data=optimized),
-                types.Part.from_text(text=f"Past context: {history_context}. Analyze image and describe in max 8 words for a HUD report.")
-            ])]
-        )
+        # Chamada com Fallback
+        text_result, used_model = await _call_gemini_with_fallback(optimized, history_context)
         
-        analysis = response.text.strip()
-        cognitive_memory.append(analysis)
-        if len(cognitive_memory) > 5: cognitive_memory.pop(0)
-        last_analysis_result = analysis
-        
-        _cache_set(img_hash, analysis)
-        return {"status": "success", "text": analysis, "cached": False}
+        cognitive_memory.append(text_result)
+        if len(cognitive_memory) > 10: cognitive_memory.pop(0)
+        _cache_set(img_hash, text_result)
+
+        # Atualiza o contexto de busca para o botão HOMES Search
+        import re
+        search_match = re.search(r'\[search:\s*(.*?)\]', text_result)
+        if search_match:
+            last_analysis_result = search_match.group(1)
+            print(f"🔍 [Memory] Next Search Target: {last_analysis_result}")
+        else:
+            last_analysis_result = text_result[:50]
+
+        return {"status": "success", "text": text_result, "cached": False, "model": used_model}
     except Exception as e:
+        print(f"❌ [Analyze] Error: {e}")
         return {"status": "error", "message": str(e)}
 
 @app.post("/ingest/gesture")
