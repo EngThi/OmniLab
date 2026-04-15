@@ -130,6 +130,10 @@ async def lifespan(app: FastAPI):
 app = FastAPI(lifespan=lifespan)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
+@app.get("/")
+async def health():
+    return {"status": "BRAIN_ACTIVE", "version": "3.0.0", "ai_model": model_id}
+
 # Memória HOMES
 cognitive_memory = []
 last_analysis_result = "technology and automation"

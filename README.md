@@ -9,10 +9,13 @@ OmniLab is a gesture-controlled HUD interface that integrates computer vision, L
 *Demo mode uses mouse control and mocked responses.*
 
 ## Architecture
-The Python backend manages the core logic:
+The Python backend manages the core logic (Host: Railway/Koyeb/Docker):
 - **Vision Engine:** MediaPipe hand tracking processed server-side.
 - **AI Router:** Fallback system using Gemini 3.0/3.1 models for high availability.
-- **Automation:** Playwright agent for real-time research with stealth configuration.
+- **Automation:** Playwright agent for real-time research (Headless with Docker support).
+
+Frontend HUD (Host: Cloudflare Pages/Vercel):
+- **Interface:** Dynamic 3D HUD that communicates via WebSockets.
 
 ## Features
 - Hand tracking via MediaPipe (~60 FPS).

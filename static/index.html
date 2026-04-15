@@ -416,9 +416,15 @@
 
             function connect() {
                 const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-                const isGitHub = window.location.host.includes('github.io');
-                const host = isGitHub ? 'localhost:8000' : window.location.host;
+                const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
                 
+                // Prioridade: 1. Localhost se estiver rodando local | 2. URL Manual | 3. Host atual
+                let host = isLocal ? 'localhost:8000' : window.location.host;
+                
+                // Se estiver no Cloudflare Pages, você vai precisar colocar a URL do Railway aqui:
+                const BACKEND_URL = ""; // EX: "omnilab-production.up.railway.app"
+                if (!isLocal && BACKEND_URL) host = BACKEND_URL;
+
                 try {
                     ws = new WebSocket(`${protocol}//${host}/ws/hud`);
                     ws.onopen = () => {
