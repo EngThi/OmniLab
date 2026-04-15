@@ -190,15 +190,20 @@ async def websocket_hud(ws: WebSocket):
                         try:
                             url = query if query.startswith("http") else f"https://www.google.com/search?q={query.replace(' ', '+')}"
                             await mcp_bridge.call_tool("browser_navigate", {"url": url})
-                            await asyncio.sleep(4) # Espera carregar
+                            await asyncio.sleep(10) # Espera carregar (Render)
                             screenshot = await mcp_bridge.call_tool("browser_take_screenshot", {})
-                            # Envia o print de volta pro HUD
+                            
+                            # Extrair e limpar base64
                             content = screenshot.content[0]
                             img_data = ""
                             if hasattr(content, 'data'): img_data = content.data
                             elif hasattr(content, 'text'): img_data = content.text
                             elif isinstance(content, dict): img_data = content.get('data') or content.get('text', '')
                             else: img_data = str(content)
+
+                            if isinstance(img_data, str):
+                                if img_data.startswith("b'"): img_data = img_data[2:-1]
+                                img_data = img_data.replace("\n", "").replace("\r", "").strip()
 
                             await ws.send_json({
                                 "type": "browser_screenshot",
@@ -244,17 +249,22 @@ async def handle_agent_action(action: str, ws_target: WebSocket):
         try:
             url = f"https://www.google.com/search?q={last_analysis_result.replace(' ', '+')}"
             await mcp_bridge.call_tool("browser_navigate", {"url": url})
-            await asyncio.sleep(4)
+            await asyncio.sleep(10) # Render costuma ser mais lento
             screenshot = await mcp_bridge.call_tool("browser_take_screenshot", {})
             
-            # Extrair base64 (o formato varia conforme a versão do MCP)
+            # Extrair base64 (garantindo que seja string limpa)
             img_data = ""
             content = screenshot.content[0]
-            if hasattr(content, 'data'): img_data = content.data  # Formato ImageContent (base64)
-            elif hasattr(content, 'text'): img_data = content.text # Formato TextContent
+            if hasattr(content, 'data'): img_data = content.data  
+            elif hasattr(content, 'text'): img_data = content.text 
             elif isinstance(content, dict): 
                 img_data = content.get('data') or content.get('text', '')
             else: img_data = str(content)
+
+            # Limpa prefixos b' e remove quebras de linha caso venha como representação de bytes
+            if isinstance(img_data, str):
+                if img_data.startswith("b'"): img_data = img_data[2:-1]
+                img_data = img_data.replace("\n", "").replace("\r", "").strip()
 
             await ws_target.send_json({
                 "type": "browser_screenshot",
