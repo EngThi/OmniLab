@@ -1,15 +1,10 @@
 fastapi
-uvicorn
+uvicorn[standard]
 websockets
-opencv-python
-mediapipe
-numpy
 google-genai
 pillow
 python-dotenv
-pytest
-pytest-asyncio
-httpx
 playwright
 playwright-stealth
 mcp
+httpx
