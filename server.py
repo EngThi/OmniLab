@@ -121,18 +121,24 @@ mcp_bridge = McpAgentBridge()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup: Inicia o MCP Bridge
-    await mcp_bridge.start()
+    # Startup: Inicia o MCP Bridge apenas em ambiente Local (onde tem npx/node)
+    is_server = os.getenv("RENDER") or os.getenv("RAILWAY_ENVIRONMENT")
+    if not is_server:
+        print("🏠 [System] Ambiente Local detectado. Ativando MCP Bridge...")
+        await mcp_bridge.start()
+    else:
+        print("☁️ [System] Ambiente Server detectado. MCP Bridge desativado.")
     yield
     # Shutdown
-    await mcp_bridge.stop()
+    if not is_server:
+        await mcp_bridge.stop()
 
 app = FastAPI(lifespan=lifespan)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 @app.get("/")
 async def health():
-    return {"status": "BRAIN_ACTIVE", "version": "3.0.0", "ai_model": model_id}
+    return {"status": "BRAIN_ACTIVE", "version": "3.1.0", "ai_model": model_id}
 
 # Memória HOMES
 cognitive_memory = []
@@ -168,10 +174,6 @@ def _resize_image(data: bytes, max_size: int = 512) -> bytes:
 
 class AnalyzeRequest(BaseModel):
     image: str # base64 string
-
-@app.get("/")
-async def get():
-    return FileResponse("static/index.html")
 
 @app.websocket("/ws/hud")
 async def websocket_hud(ws: WebSocket):
