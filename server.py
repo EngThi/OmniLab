@@ -189,29 +189,14 @@ async def websocket_hud(ws: WebSocket):
                         await ws.send_json({"type": "status_update", "message": "AGENT: MANUAL_SEARCH_START"})
                         try:
                             url = query if query.startswith("http") else f"https://www.google.com/search?q={query.replace(' ', '+')}"
-                            await mcp_bridge.call_tool("browser_navigate", {"url": url})
-                            await asyncio.sleep(10) # Espera carregar (Render)
-                            screenshot = await mcp_bridge.call_tool("browser_take_screenshot", {})
-                            
-                            # Extrair e limpar base64
-                            content = screenshot.content[0]
-                            img_data = ""
-                            if hasattr(content, 'data'): img_data = content.data
-                            elif hasattr(content, 'text'): img_data = content.text
-                            elif isinstance(content, dict): img_data = content.get('data') or content.get('text', '')
-                            else: img_data = str(content)
-
-                            if isinstance(img_data, str):
-                                if img_data.startswith("b'"): img_data = img_data[2:-1]
-                                img_data = img_data.replace("\n", "").replace("\r", "").strip()
-
+                            img_data = await capture_screenshot(url)
                             await ws.send_json({
                                 "type": "browser_screenshot",
                                 "data": img_data
                             })
                             await ws.send_json({"type": "status_update", "message": "AGENT: CAPTURE_COMPLETE"})
                         except Exception as e:
-                            await ws.send_json({"type": "status_update", "message": f"SEARCH_ERROR: {str(e)[:20]}"})
+                            await ws.send_json({"type": "status_update", "message": f"SEARCH_ERROR: {str(e)[:25]}"})
                     else:
                         # Busca via IA (comportamento antigo)
                         for v in list(vision_connections):
@@ -240,39 +225,48 @@ async def websocket_vision(ws: WebSocket):
     except WebSocketDisconnect:
         vision_connections.discard(ws)
 
+async def capture_screenshot(url: str) -> str:
+    """Captura screenshot usando Playwright direto (mais estável no Render)."""
+    async with async_playwright() as p:
+        print(f"📡 [Playwright] Iniciando captura: {url}")
+        browser = await p.chromium.launch(
+            headless=True,
+            args=["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"]
+        )
+        try:
+            context = await browser.new_context(viewport={'width': 1280, 'height': 720})
+            page = await context.new_page()
+            # Stealth para evitar bloqueios básicos
+            from playwright_stealth import stealth_async
+            await stealth_async(page)
+            
+            await page.goto(url, wait_until="networkidle", timeout=60000)
+            await asyncio.sleep(5) # Buffer para JS pesado
+            
+            screenshot_bytes = await page.screenshot(type="jpeg", quality=60)
+            return base64.b64encode(screenshot_bytes).decode('utf-8')
+        except Exception as e:
+            print(f"❌ [Playwright] Erro na captura: {e}")
+            raise e
+        finally:
+            await browser.close()
+
 async def handle_agent_action(action: str, ws_target: WebSocket):
     global last_analysis_result
     print(f"🎬 [Action] Triggered: {action}")
     
     if action == "HOMES_SEARCH_BROWSER":
-        await ws_target.send_json({"type": "status_update", "message": "AGENT: STARTING_BROWSER"})
+        await ws_target.send_json({"type": "status_update", "message": "AGENT: STARTING_PLAYWRIGHT"})
         try:
             url = f"https://www.google.com/search?q={last_analysis_result.replace(' ', '+')}"
-            await mcp_bridge.call_tool("browser_navigate", {"url": url})
-            await asyncio.sleep(10) # Render costuma ser mais lento
-            screenshot = await mcp_bridge.call_tool("browser_take_screenshot", {})
-            
-            # Extrair base64 (garantindo que seja string limpa)
-            img_data = ""
-            content = screenshot.content[0]
-            if hasattr(content, 'data'): img_data = content.data  
-            elif hasattr(content, 'text'): img_data = content.text 
-            elif isinstance(content, dict): 
-                img_data = content.get('data') or content.get('text', '')
-            else: img_data = str(content)
-
-            # Limpa prefixos b' e remove quebras de linha caso venha como representação de bytes
-            if isinstance(img_data, str):
-                if img_data.startswith("b'"): img_data = img_data[2:-1]
-                img_data = img_data.replace("\n", "").replace("\r", "").strip()
-
+            img_data = await capture_screenshot(url)
             await ws_target.send_json({
                 "type": "browser_screenshot",
                 "data": img_data
             })
             await ws_target.send_json({"type": "status_update", "message": "AGENT: SEARCH_COMPLETE"})
         except Exception as e:
-            await ws_target.send_json({"type": "status_update", "message": f"AGENT_ERROR: {str(e)[:20]}"})
+            await ws_target.send_json({"type": "status_update", "message": f"AGENT_ERROR: {str(e)[:25]}"})
 
     elif action == "HOMES_EMERGENCY_STOP":
         await ws_target.send_json({"type": "status_update", "message": "EMERGENCY_STOP: KILLING_AGENT"})
