@@ -8,7 +8,7 @@ import json
 import itertools
 import subprocess
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from PIL import Image
@@ -39,11 +39,11 @@ _response_cycle = itertools.cycle(DEMO_RESPONSES)
 api_key = os.getenv("GEMINI_API_KEY")
 client = genai.Client(api_key=api_key) if api_key and not DEMO_MODE else None
 
-# Roteador de Modelos (Fallback) - Estado da Arte 2026
+# Roteador de Modelos (Fallback)
 MODEL_LIST = [
-    'gemini-3-flash-preview',
-    'gemini-3.1-pro-preview',
-    'gemini-3.1-flash-lite-preview'
+    'gemini-2.0-flash',
+    'gemini-2.0-flash-lite',
+    'gemini-1.5-flash',
 ]
 model_id = MODEL_LIST[0]
 
@@ -57,11 +57,9 @@ class McpAgentBridge:
         self._task = None
 
     async def _run_engine(self):
-        """Tarefa de fundo que mantém a conexão MCP viva."""
-        print("🚀 [MCP] Initializing Playwright MCP Server (HEADED MODE)...")
+        print("🚀 [MCP] Initializing Playwright MCP Server...")
         env = os.environ.copy()
-        is_render = os.getenv("RENDER", "false").lower() == "true"
-        env["HEADLESS"] = "true" if is_render else "false"
+        env["HEADLESS"] = "true"
         
         server_params = StdioServerParameters(
             command="npx",
@@ -71,20 +69,13 @@ class McpAgentBridge:
 
         async with AsyncExitStack() as stack:
             try:
-                print("⏳ [MCP] Connecting to stdio...")
                 read_stream, write_stream = await stack.enter_async_context(stdio_client(server_params))
-                print("⏳ [MCP] Initializing ClientSession...")
                 self.session = await stack.enter_async_context(ClientSession(read_stream, write_stream))
                 await self.session.initialize()
-                
-                # Listar ferramentas para depuração
                 tools = await self.session.list_tools()
                 print(f"🛠️ [MCP] Available tools: {[t.name for t in tools.tools]}")
-                
                 self._active = True
                 print("✅ [MCP] Agent Connected and Ready")
-                
-                # Mantém a tarefa viva até ser cancelada
                 while True:
                     await asyncio.sleep(1)
             except asyncio.CancelledError:
@@ -99,13 +90,12 @@ class McpAgentBridge:
     async def start(self):
         if self._active: return
         self._task = asyncio.create_task(self._run_engine())
-        # Espera inicialização básica
         for _ in range(10):
             if self._active: break
             await asyncio.sleep(0.5)
 
     async def call_tool(self, name: str, arguments: dict):
-        if not self._active or not self.session: 
+        if not self._active or not self.session:
             await self.start()
         print(f"🛠️ [MCP] Executing: {name}")
         return await self.session.call_tool(name, arguments)
@@ -121,26 +111,28 @@ mcp_bridge = McpAgentBridge()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup: Inicia o MCP Bridge apenas em ambiente Local (onde tem npx/node)
-    is_server = os.getenv("RENDER") or os.getenv("RAILWAY_ENVIRONMENT")
-    if not is_server:
-        print("🏠 [System] Ambiente Local detectado. Ativando MCP Bridge...")
+    is_cloud = os.getenv("RAILWAY_ENVIRONMENT") or os.getenv("RENDER")
+    if not is_cloud:
+        print("🏠 [System] Local env detected. Activating MCP Bridge...")
         await mcp_bridge.start()
     else:
-        print("☁️ [System] Ambiente Server detectado. MCP Bridge desativado.")
+        print("☁️ [System] Cloud env detected. MCP Bridge disabled.")
     yield
-    # Shutdown
-    if not is_server:
+    if not is_cloud:
         await mcp_bridge.stop()
 
 app = FastAPI(lifespan=lifespan)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
-@app.get("/")
+@app.get("/health")
 async def health():
-    return {"status": "BRAIN_ACTIVE", "version": "3.1.0", "ai_model": model_id}
+    return JSONResponse({"status": "BRAIN_ACTIVE", "version": "3.1.0", "model": model_id})
 
-# Memória HOMES
+@app.get("/")
+async def root():
+    return FileResponse("static/index.html")
+
+# Memória
 cognitive_memory = []
 last_analysis_result = "technology and automation"
 
@@ -150,7 +142,7 @@ vision_connections: set[WebSocket] = set()
 
 # Cache
 _cache: dict[str, tuple[str, float]] = {}
-CACHE_TTL = 30 
+CACHE_TTL = 30
 
 def _cache_get(key: str) -> str | None:
     if key in _cache:
@@ -173,7 +165,7 @@ def _resize_image(data: bytes, max_size: int = 512) -> bytes:
     return buf.getvalue()
 
 class AnalyzeRequest(BaseModel):
-    image: str # base64 string
+    image: str
 
 @app.websocket("/ws/hud")
 async def websocket_hud(ws: WebSocket):
@@ -182,36 +174,27 @@ async def websocket_hud(ws: WebSocket):
     try:
         while True:
             data = await ws.receive_json()
-            
-            # Encaminha frames de câmera vindos do browser para o vision.py
             if data.get("type") == "frame" and data.get("image"):
                 for v in list(vision_connections):
                     try: await v.send_json(data)
                     except: vision_connections.discard(v)
                 continue
-
             if data.get("type") == "command":
                 cmd = data.get("command")
                 query = data.get("query")
-                
                 if cmd == "close_browser":
                     await mcp_bridge.stop()
                 elif cmd == "analyze_and_search":
                     if query:
-                        # Busca manual via input do HUD
                         await ws.send_json({"type": "status_update", "message": "AGENT: MANUAL_SEARCH_START"})
                         try:
                             url = query if query.startswith("http") else f"https://www.google.com/search?q={query.replace(' ', '+')}"
                             img_data = await capture_screenshot(url)
-                            await ws.send_json({
-                                "type": "browser_screenshot",
-                                "data": img_data
-                            })
+                            await ws.send_json({"type": "browser_screenshot", "data": img_data})
                             await ws.send_json({"type": "status_update", "message": "AGENT: CAPTURE_COMPLETE"})
                         except Exception as e:
                             await ws.send_json({"type": "status_update", "message": f"SEARCH_ERROR: {str(e)[:25]}"})
                     else:
-                        # Busca via IA (comportamento antigo)
                         for v in list(vision_connections):
                             await v.send_json({"type": "command", "command": "analyze", "auto_search": True})
                 else:
@@ -231,7 +214,6 @@ async def websocket_vision(ws: WebSocket):
             for h in list(hud_connections):
                 try: await h.send_json(data)
                 except: hud_connections.discard(h)
-            
             if data.get("type") == "action":
                 for hud in list(hud_connections):
                     await handle_agent_action(data["action"], hud)
@@ -239,14 +221,13 @@ async def websocket_vision(ws: WebSocket):
         vision_connections.discard(ws)
 
 async def capture_screenshot(url: str) -> str:
-    """Captura screenshot usando Playwright direto (mais estável no Render)."""
     async with async_playwright() as p:
-        print(f"📡 [Playwright] Iniciando captura: {url}")
+        print(f"📡 [Playwright] Capturing: {url}")
         browser = await p.chromium.launch(
             headless=True,
             args=[
-                "--no-sandbox", 
-                "--disable-setuid-sandbox", 
+                "--no-sandbox",
+                "--disable-setuid-sandbox",
                 "--disable-dev-shm-usage",
                 "--disable-gpu",
                 "--no-first-run",
@@ -257,17 +238,14 @@ async def capture_screenshot(url: str) -> str:
         try:
             context = await browser.new_context(viewport={'width': 1280, 'height': 720})
             page = await context.new_page()
-            # Stealth para evitar bloqueios básicos
             from playwright_stealth import stealth_async
             await stealth_async(page)
-            
             await page.goto(url, wait_until="networkidle", timeout=60000)
-            await asyncio.sleep(5) # Buffer para JS pesado
-            
+            await asyncio.sleep(5)
             screenshot_bytes = await page.screenshot(type="jpeg", quality=60)
             return base64.b64encode(screenshot_bytes).decode('utf-8')
         except Exception as e:
-            print(f"❌ [Playwright] Erro na captura: {e}")
+            print(f"❌ [Playwright] Error: {e}")
             raise e
         finally:
             await browser.close()
@@ -275,87 +253,70 @@ async def capture_screenshot(url: str) -> str:
 async def handle_agent_action(action: str, ws_target: WebSocket):
     global last_analysis_result
     print(f"🎬 [Action] Triggered: {action}")
-    
     if action == "HOMES_SEARCH_BROWSER":
         await ws_target.send_json({"type": "status_update", "message": "AGENT: STARTING_PLAYWRIGHT"})
         try:
             url = f"https://www.google.com/search?q={last_analysis_result.replace(' ', '+')}"
             img_data = await capture_screenshot(url)
-            await ws_target.send_json({
-                "type": "browser_screenshot",
-                "data": img_data
-            })
+            await ws_target.send_json({"type": "browser_screenshot", "data": img_data})
             await ws_target.send_json({"type": "status_update", "message": "AGENT: SEARCH_COMPLETE"})
         except Exception as e:
             await ws_target.send_json({"type": "status_update", "message": f"AGENT_ERROR: {str(e)[:25]}"})
-
     elif action == "HOMES_EMERGENCY_STOP":
         await ws_target.send_json({"type": "status_update", "message": "EMERGENCY_STOP: KILLING_AGENT"})
         await mcp_bridge.stop()
 
 async def _call_gemini_with_fallback(optimized_image, prompt_parts):
-    """Tenta chamar o Gemini com fallback entre vários modelos."""
     last_error = None
     for m_id in MODEL_LIST:
         try:
-            print(f"🤖 [AI] Ativando modelo: {m_id}")
+            print(f"🤖 [AI] Trying model: {m_id}")
             response = await asyncio.to_thread(
                 client.models.generate_content,
                 model=m_id,
                 contents=[types.Content(role="user", parts=[
                     types.Part.from_bytes(mime_type="image/jpeg", data=optimized_image),
-                    types.Part.from_text(text=f"CONTEXT: {prompt_parts}\n\n" + 
-                        "TASK: Analyze the image. If there are people or objects, identify them. " +
-                        "If you see text, summarize it. Keep it tactical and short (HUD style). " +
+                    types.Part.from_text(text=f"CONTEXT: {prompt_parts}\n\n"
+                        "TASK: Analyze the image. Identify people or objects. "
+                        "If you see text, summarize it. Keep it tactical and short (HUD style). "
                         "At the end, suggest a SEARCH QUERY in square brackets, like [search: topic].")
                 ])]
             )
             return response.text, m_id
         except Exception as e:
             last_error = str(e)
-            print(f"⚠️ [AI] Erro no modelo {m_id}: {last_error[:50]}...")
+            print(f"⚠️ [AI] Model {m_id} failed: {last_error[:50]}...")
             if "429" in last_error or "quota" in last_error.lower() or "demand" in last_error.lower():
-                continue # Tenta o próximo
-            break # Erro fatal (ex: chave inválida)
-    raise Exception(f"Todos os modelos falharam: {last_error}")
+                continue
+            break
+    raise Exception(f"All models failed: {last_error}")
 
 @app.post("/analyze")
 async def analyze_frame(request: AnalyzeRequest):
     global cognitive_memory, _response_cycle, last_analysis_result
-    
     if DEMO_MODE:
         await asyncio.sleep(0.6)
         mock_text = next(_response_cycle)
         last_analysis_result = mock_text
         return {"status": "success", "text": mock_text, "cached": False, "demo": True}
-
-    if not client: return {"error": "IA indisponível"}
+    if not client: return {"error": "AI unavailable — set GEMINI_API_KEY"}
     try:
         image_bytes = base64.b64decode(request.image)
         optimized = _resize_image(image_bytes)
         img_hash = hashlib.md5(optimized).hexdigest()
-        
         cached = _cache_get(img_hash)
         if cached: return {"status": "success", "text": cached, "cached": True}
-
         history_context = " | ".join(cognitive_memory[-3:]) if cognitive_memory else "None"
-        
-        # Chamada com Fallback
         text_result, used_model = await _call_gemini_with_fallback(optimized, history_context)
-        
         cognitive_memory.append(text_result)
         if len(cognitive_memory) > 10: cognitive_memory.pop(0)
         _cache_set(img_hash, text_result)
-
-        # Atualiza o contexto de busca para o botão HOMES Search
         import re
         search_match = re.search(r'\[search:\s*(.*?)\]', text_result)
         if search_match:
             last_analysis_result = search_match.group(1)
-            print(f"🔍 [Memory] Next Search Target: {last_analysis_result}")
         else:
             last_analysis_result = text_result[:50]
-
         return {"status": "success", "text": text_result, "cached": False, "model": used_model}
     except Exception as e:
         print(f"❌ [Analyze] Error: {e}")
@@ -372,4 +333,5 @@ async def ingest_gesture(data: dict):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    port = int(os.getenv("PORT", 8000))
+    uvicorn.run(app, host="0.0.0.0", port=port)
