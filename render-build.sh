@@ -4,6 +4,5 @@ set -o errexit
 
 pip install -r requirements.txt
 
-# Install Playwright browsers and dependencies
+# Install Playwright browser only (deps are not allowed to install via sudo on Render)
 playwright install chromium
-playwright install-deps chromium
