@@ -39,12 +39,11 @@ _response_cycle = itertools.cycle(DEMO_RESPONSES)
 api_key = os.getenv("GEMINI_API_KEY")
 client = genai.Client(api_key=api_key) if api_key and not DEMO_MODE else None
 
-# Roteador de Modelos (Fallback)
+# Roteador de Modelos (Fallback) - Estado da Arte 2026
 MODEL_LIST = [
-    'gemini-2.0-flash-lite-preview-02-05',
-    'gemini-2.0-flash',
-    'gemini-1.5-flash',
-    'gemini-1.5-flash-8b'
+    'gemini-3-flash-preview',
+    'gemini-3.1-pro-preview',
+    'gemini-3.1-flash-lite-preview'
 ]
 model_id = MODEL_LIST[0]
 

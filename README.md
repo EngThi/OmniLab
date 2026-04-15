@@ -27,7 +27,7 @@ While the HUD is a web interface, the **Python Backend** is the "Brain":
 |---|---|
 | **HUD (UI)** | Three.js + Vanilla JS + WebSockets |
 | **Vision** | OpenCV + MediaPipe Tasks |
-| **AI** | Gemini 2.0 Flash (Lite) with 1.5 Fallback |
+| **AI** | Gemini 3.0 Flash (Preview) with 3.1 Fallback |
 | **Automation** | Playwright (Chromium) |
 | **Backend** | Python + FastAPI + WebSocket |
 
