@@ -53,7 +53,8 @@ class McpAgentBridge:
         """Tarefa de fundo que mantém a conexão MCP viva."""
         print("🚀 [MCP] Initializing Playwright MCP Server (HEADED MODE)...")
         env = os.environ.copy()
-        env["HEADLESS"] = "false"
+        is_render = os.getenv("RENDER", "false").lower() == "true"
+        env["HEADLESS"] = "true" if is_render else "false"
         
         server_params = StdioServerParameters(
             command="npx",
@@ -178,11 +179,38 @@ async def websocket_hud(ws: WebSocket):
 
             if data.get("type") == "command":
                 cmd = data.get("command")
+                query = data.get("query")
+                
                 if cmd == "close_browser":
                     await mcp_bridge.stop()
                 elif cmd == "analyze_and_search":
-                    for v in list(vision_connections):
-                        await v.send_json({"type": "command", "command": "analyze", "auto_search": True})
+                    if query:
+                        # Busca manual via input do HUD
+                        await ws.send_json({"type": "status_update", "message": "AGENT: MANUAL_SEARCH_START"})
+                        try:
+                            url = query if query.startswith("http") else f"https://www.google.com/search?q={query.replace(' ', '+')}"
+                            await mcp_bridge.call_tool("browser_navigate", {"url": url})
+                            await asyncio.sleep(4) # Espera carregar
+                            screenshot = await mcp_bridge.call_tool("browser_take_screenshot", {})
+                            # Envia o print de volta pro HUD
+                            content = screenshot.content[0]
+                            img_data = ""
+                            if hasattr(content, 'data'): img_data = content.data
+                            elif hasattr(content, 'text'): img_data = content.text
+                            elif isinstance(content, dict): img_data = content.get('data') or content.get('text', '')
+                            else: img_data = str(content)
+
+                            await ws.send_json({
+                                "type": "browser_screenshot",
+                                "data": img_data
+                            })
+                            await ws.send_json({"type": "status_update", "message": "AGENT: CAPTURE_COMPLETE"})
+                        except Exception as e:
+                            await ws.send_json({"type": "status_update", "message": f"SEARCH_ERROR: {str(e)[:20]}"})
+                    else:
+                        # Busca via IA (comportamento antigo)
+                        for v in list(vision_connections):
+                            await v.send_json({"type": "command", "command": "analyze", "auto_search": True})
                 else:
                     for v in list(vision_connections):
                         try: await v.send_json(data)
@@ -214,8 +242,23 @@ async def handle_agent_action(action: str, ws_target: WebSocket):
     if action == "HOMES_SEARCH_BROWSER":
         await ws_target.send_json({"type": "status_update", "message": "AGENT: STARTING_BROWSER"})
         try:
-            res = await mcp_bridge.call_tool("browser_navigate", {
-                "url": f"https://www.google.com/search?q={last_analysis_result.replace(' ', '+')}"
+            url = f"https://www.google.com/search?q={last_analysis_result.replace(' ', '+')}"
+            await mcp_bridge.call_tool("browser_navigate", {"url": url})
+            await asyncio.sleep(4)
+            screenshot = await mcp_bridge.call_tool("browser_take_screenshot", {})
+            
+            # Extrair base64 (o formato varia conforme a versão do MCP)
+            img_data = ""
+            content = screenshot.content[0]
+            if hasattr(content, 'data'): img_data = content.data  # Formato ImageContent (base64)
+            elif hasattr(content, 'text'): img_data = content.text # Formato TextContent
+            elif isinstance(content, dict): 
+                img_data = content.get('data') or content.get('text', '')
+            else: img_data = str(content)
+
+            await ws_target.send_json({
+                "type": "browser_screenshot",
+                "data": img_data
             })
             await ws_target.send_json({"type": "status_update", "message": "AGENT: SEARCH_COMPLETE"})
         except Exception as e:

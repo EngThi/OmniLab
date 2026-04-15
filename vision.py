@@ -161,7 +161,8 @@ def vision_loop():
 import base64
 
 async def main():
-    uri = "ws://localhost:8000/ws/vision"
+    ws_url = os.getenv("HOMES_WS_URL", "ws://localhost:8000/ws/vision")
+    uri = ws_url
     thinking_config = types.GenerateContentConfig(thinking_config=types.ThinkingConfig(include_thoughts=True))
     while running:
         try:

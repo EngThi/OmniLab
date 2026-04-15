@@ -175,6 +175,7 @@
                 <div id="right-bottom-container">
                     <div id="control-panel">
                         <input type="text" id="search-box" placeholder="URL OR SEARCH..." />
+                        <button class="cmd-btn" id="track-btn" onclick="toggleTracking()">Tracking: OFF</button>
                         <button class="cmd-btn" onclick="sendCommand('analyze')">Scan</button>
                         <button class="cmd-btn special" onclick="sendCommand('analyze_and_search')">HOMES Search</button>
                         <button class="cmd-btn warn" onclick="sendCommand('close_browser')">Terminate</button>
@@ -489,8 +490,16 @@
             });
 
             function updateHUD(data) {
+                // Descomente a linha abaixo para inverter o movimento caso pareça espelhado
+                // data.x = 1 - data.x; 
+                
                 const targetX = (data.x - 0.5) * 30;
                 const targetY = (0.5 - data.y) * 20;
+                
+                if (data.type === 'gesture' && data.gesture !== 'none') {
+                    console.log(`[HUD] Gesture: ${data.gesture} at (${data.x.toFixed(2)}, ${data.y.toFixed(2)})`);
+                }
+
                 cursorGroup.position.x += (targetX - cursorGroup.position.x) * 0.3;
                 cursorGroup.position.y += (targetY - cursorGroup.position.y) * 0.3;
                 
