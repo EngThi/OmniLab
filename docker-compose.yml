@@ -1,0 +1,17 @@
+version: '3.8'
+
+services:
+  omnilab:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - DEMO_MODE=${DEMO_MODE:-false}
+      - PORT=8000
+    restart: always
+    # Limites para não derrubar a VM de 1GB
+    deploy:
+      resources:
+        limits:
+          memory: 800M
