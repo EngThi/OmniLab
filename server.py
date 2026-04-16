@@ -44,7 +44,7 @@ MODEL_LIST = [
 ]
 model_id = MODEL_LIST[0]
 
-from playwright_stealth import stealth_async
+from playwright_stealth import Stealth
 
 # ── MCP BRIDGE (só local, sem Node no container) ──
 class McpAgentBridge:
@@ -204,21 +204,21 @@ async def websocket_vision(ws: WebSocket):
         vision_connections.discard(ws)
 
 async def capture_screenshot(url: str) -> str:
-    async with async_playwright() as p:
-        print(f"📡 [Playwright] Capturing: {url}")
+    from playwright_stealth import Stealth
+    # Padrão 2026: Stealth envolve o próprio motor do Playwright
+    async with Stealth().use_async(async_playwright()) as p:
+        print(f"📡 [Playwright] Modern Stealth Active: {url}")
         browser = await p.chromium.launch(headless=True, args=[
             "--no-sandbox", "--disable-setuid-sandbox",
-            "--disable-dev-shm-usage", "--disable-gpu",
-            "--no-first-run", "--no-zygote", "--disable-extensions"
+            "--disable-dev-shm-usage", "--disable-gpu"
         ])
         try:
             context = await browser.new_context(viewport={'width': 1280, 'height': 720})
             page = await context.new_page()
-            from playwright_stealth import stealth_async
-            await stealth_async(page)
             await page.goto(url, wait_until="networkidle", timeout=60000)
             await asyncio.sleep(5)
-            return base64.b64encode(await page.screenshot(type="jpeg", quality=60)).decode('utf-8')
+            screenshot_bytes = await page.screenshot(type="jpeg", quality=60)
+            return base64.b64encode(screenshot_bytes).decode('utf-8')
         except Exception as e:
             print(f"❌ [Playwright] Error: {e}")
             raise
