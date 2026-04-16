@@ -37,13 +37,14 @@ client = genai.Client(api_key=api_key) if api_key and not DEMO_MODE else None
 
 # ── MODELO GEMINI — família 3/3.1 (nomes oficiais da API) ──
 MODEL_LIST = [
-    "gemini-3-flash-preview",       # Gemini 3 Flash — lançado dez/2025
-    "gemini-3.1-flash-lite-preview",# Gemini 3.1 Flash-Lite — lançado mar/2026
-    "gemini-3.1-pro-preview",       # Gemini 3.1 Pro — fallback pesado
+    "gemini-3.1-flash-lite-preview", # Prioridade 1: O mais rápido de 2026
+    "gemini-3-flash-preview",       # Prioridade 2: O Flash original
+    "gemini-2.5-flash-lite-preview", # Prioridade 3: Backup estável
+    "gemini-3.1-pro-preview"        # Fallback de alta inteligência
 ]
 model_id = MODEL_LIST[0]
 
-from playwright_stealth import Stealth
+from playwright_stealth import stealth_async
 
 # ── MCP BRIDGE (só local, sem Node no container) ──
 class McpAgentBridge:
