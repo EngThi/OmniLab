@@ -418,12 +418,13 @@
                 const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
                 const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
                 
+                // Variáveis Globais de Ambiente (Acessadas pelo vision.js também)
+                window.BACKEND_URL = ""; // EX: "omnilab-production.up.railway.app"
+                window.USE_FRONTEND_VISION = !isLocal; // Se for DEPLOY (não-local), ativa webcam via Browser JS
+                
                 // Prioridade: 1. Localhost se estiver rodando local | 2. URL Manual | 3. Host atual
                 let host = isLocal ? 'localhost:8000' : window.location.host;
-                
-                // Se estiver no Cloudflare Pages, você vai precisar colocar a URL do Railway aqui:
-                const BACKEND_URL = ""; // EX: "omnilab-production.up.railway.app"
-                if (!isLocal && BACKEND_URL) host = BACKEND_URL;
+                if (!isLocal && window.BACKEND_URL) host = window.BACKEND_URL;
 
                 try {
                     ws = new WebSocket(`${protocol}//${host}/ws/hud`);
@@ -569,5 +570,8 @@
                 renderer.setSize(window.innerWidth, window.innerHeight);
             };
         </script>
+        
+        <!-- Frontend Vision Engine -->
+        <script src="./vision.js"></script>
     </body>
 </html>
