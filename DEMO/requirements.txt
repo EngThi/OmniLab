@@ -1,0 +1,10 @@
+fastapi
+uvicorn[standard]
+websockets
+google-genai
+pillow
+python-dotenv
+playwright
+playwright-stealth
+mcp
+httpx
