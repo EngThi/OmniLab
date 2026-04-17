@@ -1,6 +1,10 @@
 // static/vision.js
 console.log("Carregando módulo Vision (Frontend)...");
 
+function vLog(msg, level = "INFO") {
+    if (typeof window.remoteLog === "function") window.remoteLog(`VISION: ${msg}`, level);
+}
+
 let handLandmarker;
 let runningMode = "VIDEO";
 let webcamRunning = false;
@@ -16,6 +20,7 @@ const SWIPE_THRESHOLD = 0.15;
 const GESTURE_COOLDOWN = 800; // ms
 
 async function initVisionFrontend() {
+    vLog("STARTING_INITIALIZATION");
     console.log("Inicializando MediaPipe Vision JS...");
     
     // Cria elemento de vídeo escondido
@@ -29,39 +34,48 @@ async function initVisionFrontend() {
     script.src = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision/vision_bundle.js";
     script.crossOrigin = "anonymous";
     script.onload = async () => {
-        const { HandLandmarker, FilesetResolver } = window;
-        const vision_wasm = await FilesetResolver.forVisionTasks(
-            "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm"
-        );
+        vLog("MEDIAPIPE_JS_LOADED");
+        try {
+            const { HandLandmarker, FilesetResolver } = window;
+            const vision_wasm = await FilesetResolver.forVisionTasks(
+                "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm"
+            );
 
-        handLandmarker = await HandLandmarker.createFromOptions(vision_wasm, {
-            baseOptions: {
-                modelAssetPath: "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task",
-                delegate: "GPU"
-            },
-            runningMode: runningMode,
-            numHands: 1,
-            minHandDetectionConfidence: 0.5,
-            minHandPresenceConfidence: 0.5,
-            minTrackingConfidence: 0.5
-        });
+            handLandmarker = await HandLandmarker.createFromOptions(vision_wasm, {
+                baseOptions: {
+                    modelAssetPath: "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task",
+                    delegate: "GPU"
+                },
+                runningMode: runningMode,
+                numHands: 1,
+                minHandDetectionConfidence: 0.5,
+                minHandPresenceConfidence: 0.5,
+                minTrackingConfidence: 0.5
+            });
 
-        console.log("MediaPipe Vision JS Pronto!");
-        startWebcam();
+            vLog("MEDIAPIPE_READY");
+            startWebcam();
+        } catch (e) {
+            vLog(`MEDIAPIPE_INIT_ERROR: ${e.message}`, "CRITICAL");
+        }
     };
+    script.onerror = () => vLog("MEDIAPIPE_JS_DOWNLOAD_FAILED", "CRITICAL");
     document.head.appendChild(script);
 }
 
 function startWebcam() {
+    vLog("REQUESTING_WEBCAM");
     navigator.mediaDevices.getUserMedia({ video: true }).then((stream) => {
+        vLog("WEBCAM_GRANTED");
         videoElement.srcObject = stream;
         videoElement.addEventListener("loadeddata", () => {
             webcamRunning = true;
+            vLog("WEBCAM_RUNNING");
             connectVisionWS();
             requestAnimationFrame(predictWebcam);
         });
     }).catch(err => {
-        console.error("Erro ao acessar a webcam: ", err);
+        vLog(`WEBCAM_ERROR: ${err.message}`, "ERROR");
     });
 }
 
@@ -74,10 +88,12 @@ function connectVisionWS() {
         host = BACKEND_URL;
     }
     
+    vLog(`CONNECTING_WS: ${protocol}//${host}/ws/vision`);
+    
     visionWs = new WebSocket(`${protocol}//${host}/ws/vision`);
-    visionWs.onopen = () => console.log("Frontend Vision WS conectado ao servidor.");
+    visionWs.onopen = () => vLog("WS_CONNECTED", "INFO");
     visionWs.onclose = () => {
-        console.log("Vision WS desconectado, tentando reconectar...");
+        vLog("WS_DISCONNECTED", "WARN");
         setTimeout(connectVisionWS, 2000);
     };
 }
@@ -178,7 +194,7 @@ function predictWebcam() {
     }
 }
 
-// Inicia se tiver a variável ou se chamar init
-if (typeof USE_FRONTEND_VISION !== 'undefined' && USE_FRONTEND_VISION) {
-    initVisionFrontend();
-}
+// Inicialização automática desativada (HUD chama agora)
+// if (typeof USE_FRONTEND_VISION !== 'undefined' && USE_FRONTEND_VISION) {
+//    initVisionFrontend();
+// }

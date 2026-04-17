@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
     <head>
-        <title>OmniLab HUD // HOMES_CORE</title>
+        <title>OmniLab HUD // HOMES_CORE_LOCAL</title>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
         <style>
             :root {
@@ -11,38 +11,15 @@
                 --warn-color: #ff00ff;
                 --accent-color: #00ff00;
             }
-            body.light-mode {
-                --bg-color: #f0f0f0;
-                --text-color: #1a1a1a;
-                --glow-color: #0066cc;
-            }
             body { 
-                margin: 0; 
-                overflow: hidden; 
-                background: var(--bg-color); 
-                color: var(--text-color);
-                font-family: 'Courier New', monospace; 
-                transition: background 0.3s, color 0.3s;
+                margin: 0; overflow: hidden; background: var(--bg-color); 
+                color: var(--text-color); font-family: 'Courier New', monospace; 
                 text-transform: uppercase;
-            }
-            body.scanning {
-                animation: scan-alert 0.5s infinite alternate;
-            }
-            @keyframes scan-alert {
-                from { background: #000; }
-                to { background: #001122; }
             }
             #ui-layer {
                 position: absolute; top: 0; left: 0; width: 100%; height: 100%;
                 pointer-events: none; padding: 20px;
-                text-shadow: 0 0 10px var(--glow-color);
-                z-index: 10; /* Garante que a UI fique acima do 3D */
-            }
-            #button-panel {
-                pointer-events: auto; /* Permite clicar nos botões */
-                display: flex;
-                gap: 10px;
-                margin-top: 20px;
+                text-shadow: 0 0 10px var(--glow-color); z-index: 10;
             }
             .scanline {
                 width: 100%; height: 2px; background: rgba(0, 242, 245, 0.1);
@@ -50,156 +27,87 @@
             }
             @keyframes scan { from {top: 0;} to {top: 100%;} }
             
-            #right-bottom-container {
-                position: absolute; bottom: 20px; right: 20px;
-                display: flex; flex-direction: column; align-items: flex-end;
-                pointer-events: auto;
-            }
-
             #control-panel {
-                display: flex; gap: 8px; margin-bottom: 15px;
-                flex-wrap: wrap; justify-content: flex-end;
-                max-width: 350px;
-                pointer-events: auto;
+                position: absolute; bottom: 40px; right: 40px;
+                display: flex; flex-direction: column; align-items: flex-end;
+                pointer-events: auto; background: rgba(0, 0, 0, 0.5);
+                padding: 15px; border-right: 2px solid var(--text-color);
             }
-
+            
             #search-box {
-                background: rgba(0,0,0,0.6);
-                border: 1px solid var(--text-color);
-                color: var(--text-color);
-                padding: 8px;
-                font-family: 'Courier New', monospace;
-                width: 200px;
-                font-size: 0.8em;
-                outline: none;
-            }
-
-            #browser-view {
-                position: absolute; top: 50%; left: 50%;
-                transform: translate(-50%, -50%);
-                width: 80%; height: 70%;
-                background: rgba(0,0,0,0.9);
-                border: 2px solid var(--text-color);
-                display: none;
-                flex-direction: column;
-                z-index: 2000;
-                pointer-events: auto;
-            }
-
-            #browser-header {
-                background: var(--text-color);
-                color: #000;
-                padding: 5px 15px;
-                display: flex; justify-content: space-between;
-                font-weight: bold; font-size: 0.8em;
-            }
-
-            #close-browser-view { cursor: pointer; }
-
-            #browser-content {
-                flex: 1;
-                width: 100%;
-                object-fit: contain;
-                background: #111;
+                background: rgba(0,0,0,0.6); border: 1px solid var(--text-color);
+                color: var(--text-color); padding: 10px; font-family: 'Courier New', monospace;
+                width: 180px; font-size: 0.8em; outline: none; margin-bottom: 10px;
             }
 
             .cmd-btn {
-                background: rgba(0, 242, 255, 0.1);
-                border: 1px solid var(--text-color);
-                color: var(--text-color);
-                padding: 8px 12px;
-                font-family: 'Courier New', monospace;
-                font-size: 0.75em;
-                cursor: pointer;
-                transition: 0.2s;
-                text-transform: uppercase;
+                background: rgba(0, 242, 255, 0.1); border: 1px solid var(--text-color);
+                color: var(--text-color); padding: 10px 16px; font-family: 'Courier New', monospace;
+                font-size: 0.8em; cursor: pointer; margin-bottom: 8px; width: 180px;
+                text-align: right; transition: 0.2s;
             }
-            .cmd-btn:hover { background: var(--text-color); color: #000; box-shadow: 0 0 15px var(--glow-color); }
+            .cmd-btn:hover { background: var(--text-color); color: #000; transform: translateX(-5px); }
             .cmd-btn.special { border-color: var(--accent-color); color: var(--accent-color); }
-            .cmd-btn.special:hover { background: var(--accent-color); color: #000; }
-            .cmd-btn.warn:hover { background: var(--warn-color); border-color: var(--warn-color); }
-
-            #diag-panel {
-                font-size: 0.75em; text-align: right;
-                border-right: 3px solid var(--text-color); padding-right: 15px;
-                background: rgba(0,0,0,0.3);
-                min-width: 220px;
-            }
+            .cmd-btn.warn { border-color: var(--warn-color); color: var(--warn-color); }
 
             #log-console {
-                margin-top: 15px;
-                font-size: 0.8em;
-                max-width: 400px;
-                height: 180px;
-                overflow: hidden;
+                margin-top: 15px; font-size: 0.8em; max-width: 450px; height: 300px;
+                overflow-y: auto; border-left: 1px solid var(--text-color);
+                padding: 10px; display: flex; flex-direction: column;
                 background: rgba(0, 242, 255, 0.05);
-                border-left: 1px solid var(--text-color);
-                padding: 10px;
-                display: flex;
-                flex-direction: column-reverse;
             }
-            .log-entry { margin-bottom: 5px; animation: fade 0.5s ease; }
+            .log-entry { margin-bottom: 8px; animation: fade 0.4s ease; word-wrap: break-word; }
             @keyframes fade { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: translateX(0); } }
+            
+            #diag-panel { font-size: 0.7em; text-align: right; margin-top: 10px; opacity: 0.8; }
 
-            #mode-toggle {
-                position: absolute; top: 20px; right: 20px;
-                pointer-events: auto; background: none;
-                border: 1px solid var(--text-color); color: var(--text-color);
-                padding: 5px 10px; cursor: pointer; z-index: 100;
+            #browser-view {
+                position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+                width: 80%; height: 70%; background: rgba(0,0,0,0.9);
+                border: 2px solid var(--text-color); display: none; flex-direction: column;
+                z-index: 2000; pointer-events: auto;
             }
-
-            #demo-banner {
-                position:absolute; top:10px; left:50%; transform:translateX(-50%); 
-                color:var(--warn-color); font-size:0.8em; border:1px solid var(--warn-color); 
-                padding:5px 20px; background:rgba(255,0,255,0.1); z-index:1000;
-            }
+            #browser-header { background: var(--text-color); color: #000; padding: 5px 15px; display: flex; justify-content: space-between; font-weight: bold; }
+            #browser-content { flex: 1; width: 100%; object-fit: contain; background: #111; }
         </style>
     </head>
-    <body class="dark-mode">
-        <button id="mode-toggle">THEME_SYNC</button>
+    <body>
+        <div class="scanline"></div>
         <div id="ui-layer">
-            <div class="scanline"></div>
-            
-            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-                <div>
-                    <h2 style="margin: 0;">OMNILAB // HOMES_OS</h2>
-                    <div id="status">SYSTEM: STANDBY</div>
-                    <div id="gesture-hint" style="font-size: 0.6em; color: var(--accent-color); opacity: 0.7;">WAKE_WORD: "HOMES"</div>
+            <h2 style="margin: 0;">OMNILAB // CORE_LOCAL</h2>
+            <div id="status">SYSTEM: STANDBY</div>
+            <div id="log-console"></div>
+
+            <div id="control-panel">
+                <input type="text" id="search-box" placeholder="URL OR SEARCH..." />
+                <button class="cmd-btn special" id="vision-btn" onclick="initVision()">INIT_SENSORS</button>
+                <button class="cmd-btn" onclick="runAnalyze()">SCAN_ENV</button>
+                <button class="cmd-btn special" onclick="sendCommand('analyze_and_search')">HOMES_SEARCH</button>
+                <button class="cmd-btn warn" onclick="sendCommand('close_browser')">TERMINATE</button>
+                
+                <div id="diag-panel">
+                    <div id="fps">FPS: 00</div>
+                    <div id="gesture-display" style="color: var(--accent-color)">GESTURE: NONE</div>
+                    <div id="model">CORE: GEMINI-3.1-LOCAL</div>
                 </div>
             </div>
 
-            <div id="log-console"></div>
+            <div id="browser-view">
+                <div id="browser-header"><span>REMOTE_BROWSER_FEED</span><span onclick="hideBrowser()" style="cursor:pointer">[X]</span></div>
+                <img id="browser-content" src="" />
+            </div>
+        </div>
 
-            <!-- Button Panel -->
-            <div id="button-panel">
-                <div id="right-bottom-container">
-                    <div id="control-panel">
-                        <input type="text" id="search-box" placeholder="URL OR SEARCH..." />
-                        <button class="cmd-btn" id="track-btn" onclick="toggleTracking()">Tracking: OFF</button>
-                        <button class="cmd-btn" onclick="sendCommand('analyze')">Scan</button>
-                        <button class="cmd-btn special" onclick="sendCommand('analyze_and_search')">HOMES Search</button>
-                        <button class="cmd-btn warn" onclick="sendCommand('close_browser')">Terminate</button>
-                    </div>
-                    <div id="diag-panel">
-                        <div id="fps">FPS: 00</div>
-                        <div id="mem-status" style="color: var(--accent-color); margin: 4px 0;">MEM: BUFFER_SYNC_ACTIVE</div>
-                        <div id="model">CORE: GEMINI-3.1-LITE</div>
-                    </div>
-                </div>
+        <script>
+            // --- TELEMETRIA & LIMPEZA ---
+            function cleanTacticalText(text) {
+                if (!text) return "";
+                return text.replace(/[\*#\-_\[\]\(\)>]/g, "").replace(/\s+/g, " ").trim().toUpperCase();
+            }
 
-                <div id="browser-view">
-                    <div id="browser-header">
-                        <span>REMOTE_BROWSER_FEED</span>
-                        <span id="close-browser-view" onclick="hideBrowser()">[X]</span>
-                    </div>
-                    <img id="browser-content" src="" />
-                </div>
-                </div>
-
-                <script>
-
+            // --- THREE.JS HUD ---
             const scene = new THREE.Scene();
-            const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
             const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true});
             renderer.setSize(window.innerWidth, window.innerHeight);
             document.body.appendChild(renderer.domElement);
@@ -207,196 +115,186 @@
             const cursorGroup = new THREE.Group();
             const ringMat = new THREE.MeshBasicMaterial({ color: 0x00f2ff, transparent: true, opacity: 0.8, side: THREE.DoubleSide });
             const innerRing = new THREE.Mesh(new THREE.RingGeometry(0.8, 1, 32), ringMat);
-            const outerRing = new THREE.Mesh(new THREE.RingGeometry(1.2, 1.3, 4, 1), ringMat); 
+            const outerRing = new THREE.Mesh(new THREE.RingGeometry(1.2, 1.3, 4, 1), ringMat);
             cursorGroup.add(innerRing, outerRing);
             scene.add(cursorGroup);
-
+            
             const grid = new THREE.GridHelper(100, 40, 0x00f2ff, 0x002222);
-            grid.rotation.x = Math.PI / 2;
-            grid.position.z = -20;
+            grid.rotation.x = Math.PI / 2; grid.position.z = -20;
             scene.add(grid);
-
             camera.position.z = 15;
 
-            const statusEl = document.getElementById('status');
-            const fpsEl = document.getElementById('fps');
-            const logConsole = document.getElementById('log-console');
+            // --- VISION ENGINE (ES MODULES) ---
+            let handLandmarker;
+            let videoElement;
+            let visionWs;
+            let lastVideoTime = -1;
+            let isLockActive = false;
 
-            // --- BROWSER VISION CORE (RENDER DEPLOY) ---
-            let browserCameraStream = null;
-            let cameraVideo = null;
-            let captureCanvas = null;
-            let isAnalyzing = false;
-            let isTrackingEnabled = false;
+            async function initVision() {
+                addLog("INIT_SENSORS_PROTOCOL...", "var(--accent-color)");
+                videoElement = document.createElement("video");
+                videoElement.style.display = "none";
+                videoElement.autoplay = true;
+                document.body.appendChild(videoElement);
 
-            function toggleTracking() {
-                isTrackingEnabled = !isTrackingEnabled;
-                const btn = document.getElementById('track-btn');
-                btn.innerText = isTrackingEnabled ? "Tracking: ON" : "Tracking: OFF";
-                btn.style.borderColor = isTrackingEnabled ? "var(--accent-color)" : "rgba(0, 242, 255, 0.3)";
-                addLog(`SYSTEM: HAND_TRACKING_${isTrackingEnabled ? 'ENABLED' : 'DISABLED'}`, isTrackingEnabled ? "var(--accent-color)" : "var(--warn-color)");
+                try {
+                    const vision = await import("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.0");
+                    const { HandLandmarker, FilesetResolver } = vision;
+                    const vision_wasm = await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.0/wasm");
+                    handLandmarker = await HandLandmarker.createFromOptions(vision_wasm, {
+                        baseOptions: { 
+                            modelAssetPath: "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task", 
+                            delegate: "GPU" 
+                        },
+                        runningMode: "VIDEO", numHands: 1
+                    });
+                    addLog("MEDIAPIPE: ENGINE_READY", "var(--accent-color)");
+                    startWebcam();
+                } catch (e) {
+                    addLog("VISION_ERROR: MODULE_FAILED", "var(--warn-color)");
+                }
+            }
+
+            function startWebcam() {
+                navigator.mediaDevices.getUserMedia({ video: true }).then((stream) => {
+                    addLog("CAMERA: ONLINE", "var(--accent-color)");
+                    videoElement.srcObject = stream;
+                    videoElement.onloadeddata = () => {
+                        document.getElementById('vision-btn').innerText = "SENSORS: ACTIVE";
+                        connectVisionWS();
+                        requestAnimationFrame(predictWebcam);
+                    };
+                });
+            }
+
+            function connectVisionWS() {
+                visionWs = new WebSocket(`ws://${window.location.host}/ws/vision`);
+            }
+
+            // --- GESTURES & SMOOTHING ---
+            let framesProcessed = 0;
+            let lastFpsTime = Date.now();
+            let currentFps = 0;
+
+            function predictWebcam() {
+                let nowInMs = Date.now();
+                if (videoElement.currentTime !== lastVideoTime) {
+                    lastVideoTime = videoElement.currentTime;
+                    const results = handLandmarker.detectForVideo(videoElement, nowInMs);
+                    
+                    framesProcessed++;
+                    if (nowInMs - lastFpsTime > 1000) {
+                        currentFps = framesProcessed;
+                        framesProcessed = 0;
+                        lastFpsTime = nowInMs;
+                    }
+
+                    if (results.landmarks && results.landmarks.length > 0) {
+                        const l = results.landmarks[0];
+                        const gesture = detectGestureType(l);
+                        const gestureData = { 
+                            type: "gesture", 
+                            x: l[8].x, y: l[8].y, 
+                            gesture: gesture.type, 
+                            pinch_progress: gesture.pinch_progress,
+                            fps: currentFps 
+                        };
+                        if (visionWs?.readyState === 1) visionWs.send(JSON.stringify(gestureData));
+                        updateHUD(gestureData);
+                    }
+                }
+                requestAnimationFrame(predictWebcam);
+            }
+
+            function detectGestureType(landmarks) {
+                const thumb_tip = landmarks[4];
+                const index_tip = landmarks[8];
+                const middle_tip = landmarks[12];
+                const wrist = landmarks[0];
+
+                const dist_pinch = Math.hypot(thumb_tip.x - index_tip.x, thumb_tip.y - index_tip.y);
+                const dist_fist = Math.hypot(index_tip.x - wrist.x, index_tip.y - wrist.y);
+
+                if (dist_pinch < 0.04) return { type: "pinch", pinch_progress: 1.0 };
+                if (dist_fist < 0.25) return { type: "fist", pinch_progress: 0 };
+                if (thumb_tip.y < index_tip.y - 0.1) return { type: "thumbs_up", pinch_progress: 0 };
                 
-                if (isTrackingEnabled) ensureBrowserCamera();
+                return { type: "open", pinch_progress: 0 };
             }
 
-            async function ensureBrowserCamera() {
-                if (browserCameraStream) return true;
-                try {
-                    browserCameraStream = await navigator.mediaDevices.getUserMedia({
-                        video: { facingMode: "environment" },
-                        audio: false
-                    });
-                    cameraVideo = document.createElement("video");
-                    cameraVideo.setAttribute("playsinline", "");
-                    cameraVideo.muted = true;
-                    cameraVideo.autoplay = true;
-                    cameraVideo.srcObject = browserCameraStream;
-                    await cameraVideo.play();
-                    captureCanvas = document.createElement("canvas");
-                    addLog("BROWSER_CAM: ONLINE", "var(--accent-color)");
-                    statusEl.innerText = "SYSTEM: CAMERA_READY";
-
-                    // Inicia o loop de rastreamento de mão (Hand Tracking)
-                    startHandTrackingLoop();
-
-                    return true;
-                } catch (err) {
-                    addLog("BROWSER_CAM: ACCESS_DENIED", "var(--warn-color)");
-                    statusEl.innerText = "SYSTEM: CAMERA_DENIED";
-                    return false;
+            function updateHUD(data) {
+                document.getElementById('gesture-display').innerText = `GESTURE: ${data.gesture.toUpperCase()}`;
+                
+                // --- LOCK TARGET LOGIC (FIST) ---
+                if (data.gesture === "fist") {
+                    isLockActive = true;
+                    ringMat.color.setHex(0xff00ff);
+                } else {
+                    isLockActive = false;
+                    ringMat.color.setHex(0x00f2ff);
                 }
-            }
 
-            // Loop de rastreamento de mão em tempo real
-            async function startHandTrackingLoop() {
-                while (browserCameraStream) {
-                    if (ws && ws.readyState === WebSocket.OPEN && isTrackingEnabled && !isAnalyzing) {
-                        const frame = await captureFrameBase64();
-                        if (frame) {
-                            ws.send(JSON.stringify({ type: "frame", image: frame }));
-                        }
-                    }
-                    // 100ms (10 FPS)
-                    await new_delay(100);
+                // --- SMOOTHING ---
+                const targetX = isLockActive ? 0 : ((1 - data.x) - 0.5) * 35;
+                const targetY = isLockActive ? 0 : (0.5 - data.y) * 22;
+                
+                cursorGroup.position.x += (targetX - cursorGroup.position.x) * 0.12;
+                cursorGroup.position.y += (targetY - cursorGroup.position.y) * 0.12;
+                
+                if (data.pinch_progress > 0.5) {
+                    cursorGroup.scale.set(0.6, 0.6, 1);
+                    outerRing.rotation.z += 0.2;
+                } else {
+                    cursorGroup.scale.set(1, 1, 1);
                 }
+
+                if (data.fps) document.getElementById('fps').innerText = `FPS: ${data.fps}`;
             }
 
-            function new_delay(ms) { return new Promise(res => setTimeout(res, ms)); }
-
-            async function captureFrameBase64() {
-                if (!cameraVideo || !captureCanvas) return null;
-                const w = cameraVideo.videoWidth || 640;
-                const h = cameraVideo.videoHeight || 480;
-                if (!w || !h) return null;
-                captureCanvas.width = w;
-                captureCanvas.height = h;
-                const ctx = captureCanvas.getContext("2d");
-                ctx.drawImage(cameraVideo, 0, 0, w, h);
-                const dataUrl = captureCanvas.toDataURL("image/jpeg", 0.72);
-                return dataUrl.split(",")[1];
+            // --- WS HUD ---
+            let ws;
+            function connect() {
+                ws = new WebSocket(`ws://${window.location.host}/ws/hud`);
+                ws.onopen = () => addLog("SYSTEM: LOCAL_HUB_READY", "var(--accent-color)");
+                ws.onmessage = (e) => {
+                    const data = JSON.parse(e.data);
+                    if (data.type === 'gesture') updateHUD(data);
+                    else if (data.type === 'status_update') addLog(data.message, "var(--warn-color)");
+                    else if (data.type === 'browser_screenshot') showBrowser(data.data);
+                    else if (data.text) {
+                        const cleanText = cleanTacticalText(data.text);
+                        addLog(`ANALYSIS: ${cleanText}`, '#fff');
+                        speak(cleanText);
+                    }
+                };
             }
 
-            async function runBrowserAnalyze(autoSearch = false) {
-                if (isAnalyzing) return;
-                isAnalyzing = true;
-                try {
-                    document.body.classList.add("scanning");
-                    statusEl.innerText = "SCAN: CAPTURING_FRAME";
-                    const ok = await ensureBrowserCamera();
-                    if (!ok) {
-                        addLog("ANALYSIS_ABORTED: NO_CAMERA", "var(--warn-color)");
-                        return;
-                    }
-                    const imageBase64 = await captureFrameBase64();
-                    if (!imageBase64) {
-                        addLog("ANALYSIS_ABORTED: EMPTY_FRAME", "var(--warn-color)");
-                        return;
-                    }
-                    addLog("VISION: FRAME_CAPTURED", "var(--text-color)");
-                    statusEl.innerText = "SCAN: ANALYZING";
-                    const res = await fetch("/analyze", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ image: imageBase64 })
-                    });
-                    const data = await res.json();
-                    if (data.status === "success" && data.text) {
-                        addLog(`ANALYSIS: ${data.text}`, "#fff");
-                        speak(data.text);
-                        statusEl.innerText = data.cached ? "SYSTEM: TRACKING (CACHED)" : "SYSTEM: TRACKING";
-                        if (autoSearch) {
-                            addLog("WEB: SEARCH REQUESTED", "var(--accent-color)");
-                            if (ws && ws.readyState === WebSocket.OPEN) {
-                                ws.send(JSON.stringify({ type: "command", command: "analyze_and_search" }));
-                            }
-                        }
-                    } else {
-                        addLog(`ANALYSIS_ERROR: ${data.message || "UNKNOWN"}`, "var(--warn-color)");
-                        statusEl.innerText = "SYSTEM: ERROR";
-                    }
-                } catch (err) {
-                    addLog(`NETWORK_ERROR: ${err.message}`, "var(--warn-color)");
-                    statusEl.innerText = "SYSTEM: NETWORK_ERROR";
-                } finally {
-                    document.body.classList.remove("scanning");
-                    isAnalyzing = false;
+            async function runAnalyze() {
+                if (!videoElement) return;
+                addLog("SCAN_INITIATED...", "var(--text-color)");
+                const canvas = document.createElement("canvas");
+                canvas.width = videoElement.videoWidth; canvas.height = videoElement.videoHeight;
+                canvas.getContext("2d").drawImage(videoElement, 0, 0);
+                const imageBase64 = canvas.toDataURL("image/jpeg", 0.72).split(",")[1];
+                const res = await fetch("/analyze", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ image: imageBase64 }) });
+                const data = await res.json();
+                if (data.text) {
+                    const cleanText = cleanTacticalText(data.text);
+                    addLog(`ANALYSIS: ${cleanText}`, "#fff");
+                    speak(cleanText);
                 }
-            }
-
-            function addLog(text, color = 'var(--text-color)') {
-                const entry = document.createElement('div');
-                entry.className = 'log-entry';
-                entry.style.color = color;
-                entry.innerText = `> ${text}`;
-                logConsole.prepend(entry);
-                if (logConsole.childNodes.length > 10) logConsole.lastChild.remove();
             }
 
             function sendCommand(cmd) {
-                addLog(`MANUAL_CMD: ${cmd.toUpperCase()}`, "var(--accent-color)");
-                
-                if (cmd === "analyze") {
-                    runBrowserAnalyze(false);
-                    return;
-                }
-
+                addLog(`CMD: ${cmd.toUpperCase()}`, "var(--accent-color)");
                 if (cmd === "analyze_and_search") {
                     const searchVal = document.getElementById("search-box").value;
-                    if (searchVal) {
-                        addLog(`WEB: SEARCH_FOR: ${searchVal}`, "var(--accent-color)");
-                        if (ws && ws.readyState === WebSocket.OPEN) {
-                            ws.send(JSON.stringify({ 
-                                type: "command", 
-                                command: "analyze_and_search", 
-                                query: searchVal 
-                            }));
-                        }
-                    } else {
-                        // Se vazio, faz análise normal com autoSearch=true (usa IA)
-                        runBrowserAnalyze(true);
-                    }
-                    return;
-                }
-
-                if (cmd === "close_browser") {
+                    if (ws?.readyState === 1) ws.send(JSON.stringify({ type: "command", command: "analyze_and_search", query: searchVal || "" }));
+                } else if (cmd === "close_browser" && ws?.readyState === 1) {
                     hideBrowser();
-                    if (ws && ws.readyState === WebSocket.OPEN) {
-                        ws.send(JSON.stringify({ type: "command", command: cmd }));
-                        addLog("TERMINATE_SIGNAL: SENT", "var(--warn-color)");
-                    }
+                    ws.send(JSON.stringify({ type: "command", command: cmd }));
                 }
-            }
-
-            function hideBrowser() {
-                document.getElementById('browser-view').style.display = 'none';
-            }
-
-            function showBrowser(base64Data) {
-                const view = document.getElementById('browser-view');
-                const img = document.getElementById('browser-content');
-                img.src = `data:image/jpeg;base64,${base64Data}`;
-                view.style.display = 'flex';
-                addLog("BROWSER_FEED: UPDATED", "var(--accent-color)");
             }
 
             function speak(text) {
@@ -404,174 +302,35 @@
                     window.speechSynthesis.cancel();
                     const utterance = new SpeechSynthesisUtterance(text);
                     utterance.lang = 'en-US';
-                    utterance.rate = 1.2;
-                    utterance.pitch = 0.85; 
+                    utterance.rate = 1.1; 
                     window.speechSynthesis.speak(utterance);
                 }
             }
 
-            let ws;
-            let demoInterval = null;
-            let lastDataTime = Date.now();
-
-            function connect() {
-                const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-                const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-                
-                // Variáveis Globais de Ambiente (Acessadas pelo vision.js também)
-                window.BACKEND_URL = ""; // EX: "omnilab-production.up.railway.app"
-                window.USE_FRONTEND_VISION = !isLocal; // Se for DEPLOY (não-local), ativa webcam via Browser JS
-                
-                // Prioridade: 1. Localhost se estiver rodando local | 2. URL Manual | 3. Host atual
-                let host = isLocal ? 'localhost:8000' : window.location.host;
-                if (!isLocal && window.BACKEND_URL) host = window.BACKEND_URL;
-
-                try {
-                    ws = new WebSocket(`${protocol}//${host}/ws/hud`);
-                    ws.onopen = () => {
-                        addLog("CONNECTION_ESTABLISHED", "var(--accent-color)");
-                        if (demoInterval) {
-                            clearInterval(demoInterval);
-                            demoInterval = null;
-                            document.getElementById('demo-banner')?.remove();
-                        }
-                    };
-                    ws.onmessage = (event) => {
-                        const data = JSON.parse(event.data);
-                        if (data.type === 'gesture') {
-                            lastDataTime = Date.now();
-                            updateHUD(data);
-                        } else if (data.type === 'status_update') {
-                            statusEl.innerText = data.message;
-                            addLog(data.message, 'var(--warn-color)');
-                        } else if (data.type === 'analysis_result') {
-                            addLog(`ANALYSIS: ${data.text}`, '#fff');
-                            speak(data.text);
-                        } else if (data.type === 'browser_screenshot') {
-                            showBrowser(data.data);
-                        }
-                    };
-                    ws.onclose = () => { if (!demoInterval) startDemoMode(); setTimeout(connect, 5000); };
-                    ws.onerror = () => { if (!demoInterval) startDemoMode(); };
-                } catch(e) {
-                    startDemoMode();
-                }
+            function addLog(text, color = "var(--text-color)") {
+                const console = document.getElementById('log-console');
+                const entry = document.createElement('div');
+                entry.className = 'log-entry';
+                entry.innerText = `> ${text}`;
+                entry.style.color = color;
+                console.appendChild(entry);
+                console.scrollTop = console.scrollHeight;
             }
 
-            function startDemoMode() {
-                if (demoInterval) return;
-                addLog("VISION_OFFLINE: ENTERING_DEMO_MODE", "var(--warn-color)");
-                
-                const banner = document.createElement('div');
-                banner.id = 'demo-banner';
-                banner.innerText = "DEMO_MODE_ACTIVE // SIMULATED_DATA";
-                document.body.appendChild(banner);
-
-                let t = 0;
-                demoInterval = setInterval(() => {
-                    t += 0.05;
-                    if (Date.now() - lastMouseTime > 2000) {
-                        const demoData = {
-                            x: 0.5 + Math.sin(t) * 0.3,
-                            y: 0.5 + Math.cos(t * 0.7) * 0.2,
-                            pinch_progress: 0,
-                            fps: 60
-                        };
-                        updateHUD(demoData);
-                    }
-                }, 50);
+            function showBrowser(base64Data) {
+                document.getElementById('browser-content').src = `data:image/jpeg;base64,${base64Data}`;
+                document.getElementById('browser-view').style.display = 'flex';
             }
+            function hideBrowser() { document.getElementById('browser-view').style.display = 'none'; }
 
-            let lastMouseTime = 0;
-            window.addEventListener('mousemove', (e) => {
-                lastMouseTime = Date.now();
-                if (demoInterval || (ws && ws.readyState !== WebSocket.OPEN)) {
-                    const data = {
-                        x: e.clientX / window.innerWidth,
-                        y: e.clientY / window.innerHeight,
-                        fps: 60,
-                        pinch_progress: 0
-                    };
-                    updateHUD(data);
-                }
-            });
-
-            function updateHUD(data) {
-                // Descomente a linha abaixo para inverter o movimento caso pareça espelhado
-                // data.x = 1 - data.x; 
-                
-                const targetX = (data.x - 0.5) * 30;
-                const targetY = (0.5 - data.y) * 20;
-                
-                if (data.type === 'gesture' && data.gesture !== 'none') {
-                    console.log(`[HUD] Gesture: ${data.gesture} at (${data.x.toFixed(2)}, ${data.y.toFixed(2)})`);
-                }
-
-                cursorGroup.position.x += (targetX - cursorGroup.position.x) * 0.3;
-                cursorGroup.position.y += (targetY - cursorGroup.position.y) * 0.3;
-                
-                if (data.fps !== undefined) fpsEl.innerText = `FPS: ${data.fps}`;
-                
-                if (data.pinch_progress > 0) {
-                    const p = data.pinch_progress;
-                    ringMat.color.setRGB(p, 1-p, 1);
-                    cursorGroup.scale.set(1 - (p*0.4), 1 - (p*0.4), 1);
-                    statusEl.innerText = `SCAN_LOADING: ${Math.round(p*100)}%`;
-                } else {
-                    const isLight = document.body.classList.contains('light-mode');
-                    ringMat.color.setHex(isLight ? 0x0066cc : 0x00f2ff);
-                    cursorGroup.scale.set(1, 1, 1);
-                    if (statusEl.innerText.includes("SCAN_LOADING")) statusEl.innerText = "SYSTEM: TRACKING";
-                }
-            }
-
-            connect();
-
-            // RECONHECIMENTO DE VOZ (HOMES MODE)
-            window.SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-            if (window.SpeechRecognition) {
-                const recognition = new SpeechRecognition();
-                recognition.continuous = true;
-                recognition.interimResults = true;
-                recognition.lang = 'pt-BR';
-                recognition.onresult = (event) => {
-                    for (let i = event.resultIndex; i < event.results.length; ++i) {
-                        if (event.results[i].isFinal) {
-                            const transcript = event.results[i][0].transcript.toLowerCase().trim();
-                            addLog(`USER: ${transcript}`);
-                            if (transcript.includes("homes") || transcript.includes("pesquisar")) {
-                                sendCommand('analyze_and_search');
-                            }
-                            else if (transcript.includes("analisar")) {
-                                sendCommand('analyze');
-                            }
-                            else if (transcript.includes("fechar")) {
-                                sendCommand('close_browser');
-                            }
-                        }
-                    }
-                };
-                recognition.onend = () => { try { recognition.start(); } catch(e) {} };
-                try { recognition.start(); } catch(e) {}
-            }
-
-            function animate() {
-                requestAnimationFrame(animate);
-                innerRing.rotation.z += 0.05;
-                outerRing.rotation.z -= 0.02;
-                renderer.render(scene, camera);
+            function animate() { 
+                requestAnimationFrame(animate); 
+                innerRing.rotation.z += 0.02;
+                outerRing.rotation.z -= 0.01;
+                renderer.render(scene, camera); 
             }
             animate();
-
-            document.getElementById('mode-toggle').onclick = () => document.body.classList.toggle('light-mode');
-            window.onresize = () => {
-                camera.aspect = window.innerWidth / window.innerHeight;
-                camera.updateProjectionMatrix();
-                renderer.setSize(window.innerWidth, window.innerHeight);
-            };
+            connect();
         </script>
-        
-        <!-- Frontend Vision Engine -->
-        <script src="./vision.js"></script>
     </body>
 </html>
