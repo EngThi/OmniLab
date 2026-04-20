@@ -63,12 +63,23 @@
 
             #browser-view {
                 position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-                width: 80%; height: 70%; background: rgba(0,0,0,0.9);
+                width: 80%; height: 85%; background: rgba(0,0,0,0.9);
                 border: 2px solid var(--text-color); display: none; flex-direction: column;
                 z-index: 2000; pointer-events: auto;
+                box-shadow: 0 0 30px rgba(0, 242, 255, 0.2);
             }
-            #browser-header { background: var(--text-color); color: #000; padding: 5px 15px; display: flex; justify-content: space-between; font-weight: bold; }
-            #browser-content { flex: 1; width: 100%; object-fit: contain; background: #111; }
+            #browser-header { background: var(--text-color); color: #000; padding: 5px 15px; display: flex; justify-content: space-between; font-weight: bold; font-size: 0.8em; }
+            #browser-container { 
+                flex: 1; 
+                width: 100%; 
+                overflow-y: auto; 
+                background: #111;
+                scrollbar-width: thin;
+                scrollbar-color: var(--text-color) transparent;
+            }
+            #browser-container::-webkit-scrollbar { width: 6px; }
+            #browser-container::-webkit-scrollbar-thumb { background: var(--text-color); }
+            #browser-content { width: 100%; display: block; height: auto; }
         </style>
     </head>
     <body>
@@ -87,14 +98,20 @@
                 
                 <div id="diag-panel">
                     <div id="fps">FPS: 00</div>
+                    <div id="geo" style="color: var(--accent-color); font-size: 0.9em; margin: 4px 0;">NODE: LOCAL_LAB [HOME]</div>
                     <div id="gesture-display" style="color: var(--accent-color)">GESTURE: NONE</div>
                     <div id="model">CORE: GEMINI-3.1-LOCAL</div>
                 </div>
             </div>
 
             <div id="browser-view">
-                <div id="browser-header"><span>REMOTE_BROWSER_FEED</span><span onclick="hideBrowser()" style="cursor:pointer">[X]</span></div>
-                <img id="browser-content" src="" />
+                <div id="browser-header">
+                    <span>REMOTE_BROWSER_FEED</span>
+                    <span onclick="hideBrowser()" style="cursor:pointer">[X]</span>
+                </div>
+                <div id="browser-container">
+                    <img id="browser-content" src="" />
+                </div>
             </div>
         </div>
 
