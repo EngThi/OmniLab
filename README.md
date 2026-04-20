@@ -1,71 +1,53 @@
-# OmniLab: Gesture-Controlled HUD Interface
+# [SYSTEM_OVERVIEW]: OMNILAB // TACTICAL_HUD_OS
 
-OmniLab is a tactical HUD (Heads-Up Display) designed for real-time environment analysis and automated research using computer vision and large language models. The system integrates hand tracking, voice recognition, and browser automation into a unified 3D interface.
+OmniLab is an advanced command interface integrating high-frequency computer vision, neural-link LLMs, and autonomous browser agents into a unified 3D Heads-Up Display. Designed for real-time environment analysis and decentralized research.
 
-**[Live Demo (Cloudflare Tunnel)](https://bottle-wages-guestbook-floyd.trycloudflare.com/)**
-*Note: Sensors must be initialized via the "START_SENSORS" button to enable hand tracking.*
+**[ACTIVE_DEMO_LINK]: https://dialog-fighting-numerical-geographic.trycloudflare.com/**
+*Protocol: Initialize sensors via [START_SENSORS] and activate [VOICE: OFFLINE] to begin session.*
 
-## Core Architecture
+## [COGNITIVE_ARCHITECTURE]
 
-The project is split into a Python-based backend and a Three.js frontend, communicating over low-latency WebSockets.
+The system operates on a distributed neural-link framework to maximize performance and evade detection protocols:
 
-### Backend (Logic & Brain)
-- **Host:** Hack Club Nest (Linux environment).
-- **Vision Engine:** Utilizes MediaPipe Hand Landmarker for high-frequency coordinate tracking.
-- **Cognitive Layer:** Powered by Gemini 3.1 Flash-Lite. It performs tactical analysis of captured frames and suggests follow-up research queries.
-- **Automation:** A Playwright-based agent with stealth configurations. It performs real-time searches on DuckDuckGo to bypass datacenter IP restrictions and delivers visual results back to the HUD.
+- **Primary Processor:** Gemini 3.1 Flash-Lite (Real-time visual & tactical heuristics).
+- **Inference Node:** Hack Club Nest (Remote Command Center - Finland).
+- **Stealth Agent:** Playwright-based autonomous browser with DuckDuckGo fallback and cookie-masking.
 
-### Frontend (Interface)
-- **3D Rendering:** Built with Three.js to provide a dynamic grid and interactive cursor elements.
-- **Voice System:** Implements the Web Speech API for command recognition (Analyze, Search, Terminate).
-- **Feedback Loop:** Includes visual cues like camera flashes for captures and color-coded state changes for hand gestures.
+## [INPUT_PROTOCOLS]
 
-## Key Features
+### 1. KINETIC_GESTURES (Vision Engine)
+- **THUMBS_UP [👍]**: Triggers automatic environment scan and frame analysis.
+- **FIST [✊]**: HOLD FOR 1.5s to initiate **SYSTEM_PURGE**. Resets memory and kills sessions.
+- **PINCH [🤏]**: HOLD TO CHARGE suggested research queries. Completes energy ring to execute.
 
-- **Interactive Gestures:**
-  - **Thumbs Up:** Triggers an automatic environment scan.
-  - **Fist:** Activates "Target Lock" mode, centering and scaling the cursor.
-  - **Pinch:** Provides immediate UI feedback for precision tasks.
-- **Voice Commands:** Supports natural language commands to initiate scans, confirm suggested research, or terminate remote browser sessions.
-- **Resilient Search:** If primary search paths are blocked by CAPTCHAs, the system automatically routes traffic through privacy-focused search engines to ensure continuity.
-- **Session Management:** The "Terminate" function performs a memory purge on the backend and resets the local state for a clean start.
+### 2. NEURAL_VOICE (STT Stream)
+- **"ANALYZE / SCAN"**: Executes immediate visual capture for AI processing.
+- **"YES / SEARCH"**: Manual confirmation for agent research protocols.
+- **"TERMINATE / RESET"**: Emergency kill-switch for all active remote processes.
 
-## Local Installation
+## [DEPLOYMENT_SPECIFICATIONS]
 
-1. **Clone the repository:**
-   ```bash
-   git clone https://github.com/EngThi/OmniLab.git
-   cd OmniLab
-   ```
+### REQUIREMENTS
+- Python 3.10+
+- Chromium Engine (Managed via Playwright)
+- Valid GEMINI_API_KEY (Defined in .env)
 
-2. **Setup environment:**
-   ```bash
-   python -m venv venv
-   source venv/bin/activate
-   pip install -r requirements.txt
-   python -m playwright install chromium
-   ```
+### INITIALIZATION_SEQUENCE
+```bash
+# 1. Prepare Environment
+python -m venv venv && source venv/bin/activate
 
-3. **Configure API Keys:**
-   Create a `.env` file in the root directory and add your `GEMINI_API_KEY`.
+# 2. Synchronize Dependencies
+pip install -r requirements.txt
+python -m playwright install chromium
 
-4. **Execution:**
-   ```bash
-   # Start the server
-   python server.py
-   
-   # For remote access, use a tunnel:
-   ./cloudflared tunnel --url http://localhost:8000
-   ```
+# 3. Boot Core System
+python server.py
+```
 
-## Technical Stack
+## [NETWORK_LAYER]
+Current telemetry is routed via **Cloudflare Zero-Trust Tunneling**, providing a secure uplink to the Finland-based datacenter.
 
-| Component | Technology |
-|---|---|
-| Interface | Three.js / Vanilla JS / CSS |
-| Backend | Python / FastAPI / WebSockets |
-| Computer Vision | MediaPipe |
-| AI Model | Gemini 3.1 Flash-Lite |
-| Automation | Playwright / Playwright-Stealth |
-
-License: MIT
+---
+**[STATUS]: OPERATIONAL_LEVEL_100**
+**[AUTHOR]: EngThi // OmniLab_Core**
