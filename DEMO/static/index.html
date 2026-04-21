@@ -113,7 +113,7 @@
             let recognition;
             let isMicActive = false;
 
-            // --- RECOGNITION SETUP ---
+            // --- VOICE SYSTEM ---
             if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
                 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
                 recognition = new SpeechRecognition();
@@ -153,20 +153,18 @@
                 if (cmd.includes("analyze") || cmd.includes("analyse") || cmd.includes("scan")) {
                     runAnalyze(false);
                 } else if ((cmd === "yes" || cmd.includes("search") || cmd.includes("confirm")) && lastSuggestedQuery) {
-                    executeSearch(lastSuggestedQuery);
+                    document.getElementById("search-box").value = lastSuggestedQuery;
+                    addLog(`VOICE_CONFIRM: EXECUTING RESEARCH [${lastSuggestedQuery.toUpperCase()}]`, "var(--accent-color)");
+                    sendCommand("analyze_and_search");
                 } else if (cmd.includes("search") || cmd.includes("find")) {
                     const q = cmd.replace("search", "").replace("find", "").replace("for", "").trim();
-                    if (q) executeSearch(q);
-                } else if (cmd.includes("terminate") || cmd.includes("stop") || cmd.includes("reset")) {
+                    if (q) {
+                        document.getElementById("search-box").value = q;
+                        sendCommand("analyze_and_search");
+                    }
+                } else if (cmd.includes("terminate") || cmd.includes("stop")) {
                     sendCommand("close_browser");
                 }
-            }
-
-            function executeSearch(q) {
-                document.getElementById("search-box").value = q;
-                addLog(`EXECUTING_RESEARCH: [${q.toUpperCase()}]`, "var(--accent-color)");
-                sendCommand("analyze_and_search");
-                lastSuggestedQuery = "";
             }
 
             // --- THREE.JS HUD ---
@@ -180,11 +178,6 @@
             const ringMat = new THREE.MeshBasicMaterial({ color: 0x00f2ff, transparent: true, opacity: 0.8, side: THREE.DoubleSide });
             cursorGroup.add(new THREE.Mesh(new THREE.RingGeometry(0.8, 1, 32), ringMat));
             cursorGroup.add(new THREE.Mesh(new THREE.RingGeometry(1.2, 1.3, 4, 1), ringMat));
-            
-            // Charging Ring (Energy Ring)
-            const chargeMat = new THREE.MeshBasicMaterial({ color: 0x00ff00, transparent: true, opacity: 0.8, side: THREE.DoubleSide });
-            const chargeRing = new THREE.Mesh(new THREE.RingGeometry(1.05, 1.15, 32, 1, 0, 0.0001), chargeMat);
-            cursorGroup.add(chargeRing);
             scene.add(cursorGroup);
             
             const grid = new THREE.GridHelper(100, 40, 0x00f2ff, 0x002222);
@@ -192,60 +185,88 @@
             scene.add(grid);
             camera.position.z = 15;
 
-            // --- VISION (ROBUST DETECT) ---
+            // --- VISION SYSTEM (REBOOTED) ---
             let handLandmarker;
-            let videoElement;
+            let videoElement = null;
             let visionWs;
             let lastVideoTime = -1;
             let isVisionActive = false;
-            let lastGestureTime = 0;
             let cameraStream = null;
-
-            let pinchHoldStart = 0;
-            let fistHoldStart = 0;
-            const PINCH_CHARGE_TIME = 1500;
-            const FIST_RESET_TIME = 1500; // Sensibilidade aumentada
 
             async function preloadModels() {
                 try {
+                    addLog("LOADING_NEURAL_ENGINE...", "var(--text-color)");
                     const vision = await import("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.0");
                     const { HandLandmarker, FilesetResolver } = vision;
                     const vision_wasm = await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.0/wasm");
                     handLandmarker = await HandLandmarker.createFromOptions(vision_wasm, {
-                        baseOptions: { modelAssetPath: "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task", delegate: "GPU" },
+                        baseOptions: { 
+                            modelAssetPath: "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task", 
+                            delegate: "GPU" 
+                        },
                         runningMode: "VIDEO", numHands: 1
                     });
-                    addLog("NEURAL_ENGINE: PRELOADED", "var(--accent-color)");
-                } catch (e) { console.error("Preload failed", e); }
+                    addLog("VISION_CORE: ONLINE", "var(--accent-color)");
+                } catch (e) { 
+                    addLog(`VISION_ERROR: ${e.message.slice(0,20)}`, "var(--warn-color)");
+                    console.error("MediaPipe Load Error:", e);
+                }
             }
             preloadModels();
 
-            async function toggleVision() { if (isVisionActive) stopVision(); else startVision(); }
+            async function toggleVision() {
+                if (isVisionActive) stopVision();
+                else startVision();
+            }
+
             async function startVision() {
-                if (!handLandmarker) await preloadModels();
+                if (!handLandmarker) {
+                    addLog("AWAITING_MODELS...", "var(--accent-color)");
+                    await preloadModels();
+                }
+                
+                if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
+                    addLog("SECURITY_ERROR: HTTPS_REQUIRED", "var(--warn-color)");
+                    return;
+                }
+
                 isVisionActive = true;
-                addLog("INIT_VISION_PROTOCOL...", "var(--accent-color)");
+                addLog("INIT_CAMERA_LINK...", "var(--text-color)");
+                
                 if (!videoElement) {
                     videoElement = document.createElement("video");
-                    videoElement.style.display = "none"; videoElement.autoplay = true;
+                    videoElement.setAttribute("playsinline", "");
+                    videoElement.style.display = "none";
                     document.body.appendChild(videoElement);
                 }
-                navigator.mediaDevices.getUserMedia({ video: true }).then((stream) => {
-                    cameraStream = stream; videoElement.srcObject = stream;
+
+                try {
+                    cameraStream = await navigator.mediaDevices.getUserMedia({ 
+                        video: { width: 640, height: 480, frameRate: { ideal: 30 } } 
+                    });
+                    videoElement.srcObject = cameraStream;
+                    videoElement.play();
+                    
                     videoElement.onloadeddata = () => {
+                        addLog("CAMERA_LINK: SECURE", "var(--accent-color)");
                         document.getElementById('vision-btn').innerText = "SENSORS: ACTIVE";
                         document.getElementById('vision-btn').classList.add('active');
                         document.getElementById('status').innerText = "SYSTEM: TRACKING";
                         connectVisionWS();
                         requestAnimationFrame(predictWebcam);
-                        addLog("CAMERA: ONLINE", "var(--accent-color)");
                     };
-                }).catch(e => { addLog("CAMERA: DENIED", "var(--warn-color)"); isVisionActive = false; });
+                } catch (e) {
+                    addLog(`HARDWARE_ERROR: ${e.name}`, "var(--warn-color)");
+                    isVisionActive = false;
+                }
             }
 
             function stopVision() {
                 isVisionActive = false;
-                if (cameraStream) { cameraStream.getTracks().forEach(t => t.stop()); cameraStream = null; }
+                if (cameraStream) {
+                    cameraStream.getTracks().forEach(track => track.stop());
+                    cameraStream = null;
+                }
                 if (visionWs) { visionWs.close(); visionWs = null; }
                 document.getElementById('vision-btn').innerText = "START_SENSORS";
                 document.getElementById('vision-btn').classList.remove('active');
@@ -260,66 +281,31 @@
 
             function predictWebcam() {
                 if (!isVisionActive) return;
-                let now = Date.now();
-                if (videoElement.currentTime !== lastVideoTime) {
+                let nowInMs = Date.now();
+                if (videoElement && videoElement.currentTime !== lastVideoTime) {
                     lastVideoTime = videoElement.currentTime;
-                    const results = handLandmarker.detectForVideo(videoElement, now);
-                    if (results.landmarks && results.landmarks.length > 0) {
-                        const marks = results.landmarks[0];
-                        const l = marks[8];
-                        const gestureData = { type: "gesture", x: l.x, y: l.y, gesture: "open", charge: 0 };
-                        
-                        // --- HEURÍSTICAS ROBUSTAS ---
-                        
-                        // 1. PINCH (Indicador + Polegar)
-                        const distPinch = Math.hypot(marks[4].x - marks[8].x, marks[4].y - marks[8].y);
-                        
-                        // 2. FIST (Média de todos os dedos contra o pulso)
-                        const distFist = (
-                            Math.hypot(marks[8].x - marks[0].x, marks[8].y - marks[0].y) +
-                            Math.hypot(marks[12].x - marks[0].x, marks[12].y - marks[0].y) +
-                            Math.hypot(marks[16].x - marks[0].x, marks[16].y - marks[0].y) +
-                            Math.hypot(marks[20].x - marks[0].x, marks[20].y - marks[0].y)
-                        ) / 4;
+                    try {
+                        const results = handLandmarker.detectForVideo(videoElement, nowInMs);
+                        if (results.landmarks && results.landmarks.length > 0) {
+                            const marks = results.landmarks[0];
+                            const gestureData = { type: "gesture", x: marks[8].x, y: marks[8].y, gesture: "open" };
+                            
+                            const distPinch = Math.hypot(marks[4].x - marks[8].x, marks[4].y - marks[8].y);
+                            const distFist = Math.hypot(marks[8].x - marks[0].x, marks[8].y - marks[0].y);
+                            const isThumbsUp = marks[4].y < marks[8].y - 0.1 && marks[4].y < marks[12].y - 0.1;
 
-                        // 3. THUMBS UP (Polegar alto, outros baixos)
-                        const isThumbsUp = marks[4].y < marks[5].y && marks[8].y > marks[5].y && marks[12].y > marks[9].y;
+                            if (distPinch < 0.04) gestureData.gesture = "pinch";
+                            else if (distFist < 0.20) gestureData.gesture = "fist";
+                            else if (isThumbsUp) gestureData.gesture = "thumbs_up";
 
-                        if (distPinch < 0.045) gestureData.gesture = "pinch";
-                        else if (distFist < 0.28) gestureData.gesture = "fist"; // Threshold maior = mais fácil
-                        else if (isThumbsUp) gestureData.gesture = "thumbs_up";
-
-                        // --- GESTURE ACTIONS ---
-                        if (gestureData.gesture === "fist") {
-                            if (!fistHoldStart) fistHoldStart = now;
-                            const progress = (now - fistHoldStart) / FIST_RESET_TIME;
-                            gestureData.charge = progress;
-                            if (progress >= 1) {
-                                addLog("CRITICAL: PHYSICAL_PURGE_TRIGGERED", "var(--warn-color)");
-                                sendCommand("close_browser");
-                                fistHoldStart = 0;
+                            if (gestureData.gesture === "thumbs_up" && nowInMs - (window.lastScan || 0) > 3000) {
+                                runAnalyze(false);
+                                window.lastScan = nowInMs;
                             }
-                        } else { fistHoldStart = 0; }
-
-                        if (gestureData.gesture === "pinch" && lastSuggestedQuery) {
-                            if (!pinchHoldStart) pinchHoldStart = now;
-                            const progress = (now - pinchHoldStart) / PINCH_CHARGE_TIME;
-                            gestureData.charge = progress;
-                            if (progress >= 1) {
-                                executeSearch(lastSuggestedQuery);
-                                pinchHoldStart = 0;
-                            }
-                        } else if (gestureData.gesture !== "fist") { pinchHoldStart = 0; }
-
-                        if (gestureData.gesture === "thumbs_up" && now - lastGestureTime > 3000) {
-                            addLog("GESTURE_CMD: AUTO_SCAN", "var(--accent-color)");
-                            runAnalyze(false);
-                            lastGestureTime = now;
+                            if (visionWs?.readyState === 1) visionWs.send(JSON.stringify(gestureData));
+                            updateHUD(gestureData);
                         }
-
-                        if (visionWs?.readyState === 1) visionWs.send(JSON.stringify(gestureData));
-                        updateHUD(gestureData);
-                    }
+                    } catch (e) { console.error("Detection error:", e); }
                 }
                 requestAnimationFrame(predictWebcam);
             }
@@ -329,28 +315,19 @@
                 let targetX = ((1 - data.x) - 0.5) * 35;
                 let targetY = (0.5 - data.y) * 22;
 
-                // Update Charge Ring
-                chargeRing.geometry.dispose();
-                const arc = (data.charge || 0) * Math.PI * 2;
-                chargeRing.geometry = new THREE.RingGeometry(1.05, 1.15, 32, 1, 0, arc || 0.0001);
-
                 if (data.gesture === "fist") {
                     targetX = 0; targetY = 0;
                     ringMat.color.setHex(0xff00ff);
-                    chargeMat.color.setHex(0xff0000); // Anel de carga fica vermelho no reset
-                    cursorGroup.scale.set(1.5, 1.5, 1);
+                    cursorGroup.scale.set(1.2, 1.2, 1);
                 } else if (data.gesture === "pinch") {
                     ringMat.color.setHex(0x00ff00);
-                    chargeMat.color.setHex(0x00ff00);
-                    cursorGroup.scale.set(0.6, 0.6, 1);
-                } else if (data.gesture === "thumbs_up") {
-                    ringMat.color.setHex(0xffff00);
+                    cursorGroup.scale.set(0.5, 0.5, 1);
                 } else {
                     ringMat.color.setHex(0x00f2ff);
                     cursorGroup.scale.set(1, 1, 1);
                 }
-                cursorGroup.position.x += (targetX - cursorGroup.position.x) * 0.12;
-                cursorGroup.position.y += (targetY - cursorGroup.position.y) * 0.12;
+                cursorGroup.position.x += (targetX - cursorGroup.position.x) * 0.08;
+                cursorGroup.position.y += (targetY - cursorGroup.position.y) * 0.08;
             }
 
             let ws;
@@ -365,20 +342,29 @@
                         document.getElementById('status').innerText = data.message;
                         addLog(data.message, "var(--warn-color)");
                         if (data.message === "SYSTEM_CORE: MEMORY_PURGED") {
-                            hideBrowser(); lastSuggestedQuery = "";
-                            addLog("HUD_STATE: CACHE_CLEARED", "var(--accent-color)");
+                            hideBrowser();
+                            lastSuggestedQuery = "";
                         }
-                    } else if (data.type === 'browser_screenshot') { showBrowser(data.data); }
-                    else if (data.text) {
+                    } else if (data.type === 'browser_screenshot') {
+                        showBrowser(data.data);
+                    } else if (data.text) {
                         const cleanText = cleanTacticalText(data.text);
-                        addLog(`ANALYSIS: ${cleanText}`, '#fff'); speak(cleanText);
+                        addLog(`ANALYSIS: ${cleanText}`, '#fff');
+                        speak(cleanText);
+                        if (data.suggested_query) {
+                            lastSuggestedQuery = data.suggested_query;
+                            addLog(`SUGGESTION: ${lastSuggestedQuery.toUpperCase()}`, "var(--accent-color)");
+                        }
                     }
                 };
                 ws.onclose = () => setTimeout(connect, 3000);
             }
 
             async function runAnalyze(autoSearch = false) {
-                if (!isVisionActive || !videoElement) { addLog("SCAN_ERROR: SENSORS_OFFLINE", "var(--warn-color)"); return; }
+                if (!isVisionActive || !videoElement) {
+                    addLog("SCAN_ERROR: CAMERA_OFFLINE", "var(--warn-color)");
+                    return;
+                }
                 const flash = document.getElementById('flash-effect');
                 flash.style.opacity = '1'; setTimeout(() => flash.style.opacity = '0', 100);
                 addLog("SCAN_INITIATED...", "var(--text-color)");
@@ -390,14 +376,14 @@
                     const res = await fetch("/analyze", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ image: imgB64 }) });
                     const data = await res.json();
                     if (data.text) {
-                        addLog(`ANALYSIS: ${cleanTacticalText(data.text)}`, "#fff"); speak(data.text);
+                        addLog(`ANALYSIS: ${cleanTacticalText(data.text)}`, "#fff");
+                        speak(data.text);
                         if (data.suggested_query) {
                             lastSuggestedQuery = data.suggested_query;
-                            addLog(`AGENT: SUGGESTED RESEARCH -> [${lastSuggestedQuery.toUpperCase()}]`, "var(--accent-color)");
-                            addLog("USER_INPUT: PINCH (CHARGE) OR VOICE 'YES' TO EXECUTE", "var(--accent-color)");
+                            addLog(`SAY 'YES' TO RESEARCH: ${lastSuggestedQuery.toUpperCase()}`, "var(--accent-color)");
                         }
                     }
-                } catch (err) { addLog("SCAN_ERROR", "var(--warn-color)"); }
+                } catch (err) { addLog("SCAN_ERROR: DATA_LINK_FAILURE", "var(--warn-color)"); }
             }
 
             function sendCommand(cmd) {
