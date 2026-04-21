@@ -113,7 +113,7 @@
             let recognition;
             let isMicActive = false;
 
-            // --- VOICE SYSTEM ---
+            // --- VOICE ---
             if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
                 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
                 recognition = new SpeechRecognition();
@@ -162,12 +162,12 @@
                         document.getElementById("search-box").value = q;
                         sendCommand("analyze_and_search");
                     }
-                } else if (cmd.includes("terminate") || cmd.includes("stop")) {
+                } else if (cmd.includes("terminate") || cmd.includes("stop") || cmd.includes("reset")) {
                     sendCommand("close_browser");
                 }
             }
 
-            // --- THREE.JS HUD ---
+            // --- THREE.JS ---
             const scene = new THREE.Scene();
             const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
             const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true});
@@ -185,7 +185,7 @@
             scene.add(grid);
             camera.position.z = 15;
 
-            // --- VISION SYSTEM (REBOOTED) ---
+            // --- VISION ---
             let handLandmarker;
             let videoElement = null;
             let visionWs;
@@ -200,73 +200,43 @@
                     const { HandLandmarker, FilesetResolver } = vision;
                     const vision_wasm = await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.0/wasm");
                     handLandmarker = await HandLandmarker.createFromOptions(vision_wasm, {
-                        baseOptions: { 
-                            modelAssetPath: "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task", 
-                            delegate: "GPU" 
-                        },
+                        baseOptions: { modelAssetPath: "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task", delegate: "GPU" },
                         runningMode: "VIDEO", numHands: 1
                     });
                     addLog("VISION_CORE: ONLINE", "var(--accent-color)");
-                } catch (e) { 
-                    addLog(`VISION_ERROR: ${e.message.slice(0,20)}`, "var(--warn-color)");
-                    console.error("MediaPipe Load Error:", e);
-                }
+                } catch (e) { addLog("VISION_ERROR", "var(--warn-color)"); }
             }
             preloadModels();
 
-            async function toggleVision() {
-                if (isVisionActive) stopVision();
-                else startVision();
-            }
+            async function toggleVision() { if (isVisionActive) stopVision(); else startVision(); }
 
             async function startVision() {
-                if (!handLandmarker) {
-                    addLog("AWAITING_MODELS...", "var(--accent-color)");
-                    await preloadModels();
-                }
-                
-                if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
-                    addLog("SECURITY_ERROR: HTTPS_REQUIRED", "var(--warn-color)");
-                    return;
-                }
-
+                if (!handLandmarker) await preloadModels();
                 isVisionActive = true;
                 addLog("INIT_CAMERA_LINK...", "var(--text-color)");
-                
                 if (!videoElement) {
                     videoElement = document.createElement("video");
                     videoElement.setAttribute("playsinline", "");
                     videoElement.style.display = "none";
                     document.body.appendChild(videoElement);
                 }
-
                 try {
-                    cameraStream = await navigator.mediaDevices.getUserMedia({ 
-                        video: { width: 640, height: 480, frameRate: { ideal: 30 } } 
-                    });
+                    cameraStream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 } });
                     videoElement.srcObject = cameraStream;
                     videoElement.play();
-                    
                     videoElement.onloadeddata = () => {
-                        addLog("CAMERA_LINK: SECURE", "var(--accent-color)");
                         document.getElementById('vision-btn').innerText = "SENSORS: ACTIVE";
                         document.getElementById('vision-btn').classList.add('active');
                         document.getElementById('status').innerText = "SYSTEM: TRACKING";
                         connectVisionWS();
                         requestAnimationFrame(predictWebcam);
                     };
-                } catch (e) {
-                    addLog(`HARDWARE_ERROR: ${e.name}`, "var(--warn-color)");
-                    isVisionActive = false;
-                }
+                } catch (e) { addLog("HARDWARE_ERROR", "var(--warn-color)"); isVisionActive = false; }
             }
 
             function stopVision() {
                 isVisionActive = false;
-                if (cameraStream) {
-                    cameraStream.getTracks().forEach(track => track.stop());
-                    cameraStream = null;
-                }
+                if (cameraStream) { cameraStream.getTracks().forEach(track => track.stop()); cameraStream = null; }
                 if (visionWs) { visionWs.close(); visionWs = null; }
                 document.getElementById('vision-btn').innerText = "START_SENSORS";
                 document.getElementById('vision-btn').classList.remove('active');
@@ -284,28 +254,31 @@
                 let nowInMs = Date.now();
                 if (videoElement && videoElement.currentTime !== lastVideoTime) {
                     lastVideoTime = videoElement.currentTime;
-                    try {
-                        const results = handLandmarker.detectForVideo(videoElement, nowInMs);
-                        if (results.landmarks && results.landmarks.length > 0) {
-                            const marks = results.landmarks[0];
-                            const gestureData = { type: "gesture", x: marks[8].x, y: marks[8].y, gesture: "open" };
-                            
-                            const distPinch = Math.hypot(marks[4].x - marks[8].x, marks[4].y - marks[8].y);
-                            const distFist = Math.hypot(marks[8].x - marks[0].x, marks[8].y - marks[0].y);
-                            const isThumbsUp = marks[4].y < marks[8].y - 0.1 && marks[4].y < marks[12].y - 0.1;
+                    const results = handLandmarker.detectForVideo(videoElement, nowInMs);
+                    if (results.landmarks && results.landmarks.length > 0) {
+                        const marks = results.landmarks[0];
+                        const gestureData = { type: "gesture", x: marks[8].x, y: marks[8].y, gesture: "open" };
+                        
+                        // 1. PINCH: Indicador e Polegar próximos
+                        const dPinch = Math.hypot(marks[4].x - marks[8].x, marks[4].y - marks[8].y);
+                        
+                        // 2. FIST: Todas as pontas dos dedos abaixo das juntas (knuckles)
+                        const isFist = marks[8].y > marks[6].y && marks[12].y > marks[10].y && 
+                                       marks[16].y > marks[14].y && marks[20].y > marks[18].y;
+                        
+                        // 3. THUMBS UP: Polegar acima da mão, outros dedos fechados
+                        const isThumbsUp = marks[4].y < marks[3].y && marks[4].y < marks[8].y - 0.1 && isFist;
 
-                            if (distPinch < 0.04) gestureData.gesture = "pinch";
-                            else if (distFist < 0.20) gestureData.gesture = "fist";
-                            else if (isThumbsUp) gestureData.gesture = "thumbs_up";
+                        if (dPinch < 0.04) gestureData.gesture = "pinch";
+                        else if (isThumbsUp) gestureData.gesture = "thumbs_up";
+                        else if (isFist) gestureData.gesture = "fist";
 
-                            if (gestureData.gesture === "thumbs_up" && nowInMs - (window.lastScan || 0) > 3000) {
-                                runAnalyze(false);
-                                window.lastScan = nowInMs;
-                            }
-                            if (visionWs?.readyState === 1) visionWs.send(JSON.stringify(gestureData));
-                            updateHUD(gestureData);
+                        if (gestureData.gesture === "thumbs_up" && nowInMs - (window.lastScan || 0) > 3000) {
+                            runAnalyze(false); window.lastScan = nowInMs;
                         }
-                    } catch (e) { console.error("Detection error:", e); }
+                        if (visionWs?.readyState === 1) visionWs.send(JSON.stringify(gestureData));
+                        updateHUD(gestureData);
+                    }
                 }
                 requestAnimationFrame(predictWebcam);
             }
@@ -318,10 +291,13 @@
                 if (data.gesture === "fist") {
                     targetX = 0; targetY = 0;
                     ringMat.color.setHex(0xff00ff);
-                    cursorGroup.scale.set(1.2, 1.2, 1);
+                    cursorGroup.scale.set(1.4, 1.4, 1);
                 } else if (data.gesture === "pinch") {
                     ringMat.color.setHex(0x00ff00);
-                    cursorGroup.scale.set(0.5, 0.5, 1);
+                    cursorGroup.scale.set(0.6, 0.6, 1);
+                } else if (data.gesture === "thumbs_up") {
+                    ringMat.color.setHex(0xffff00);
+                    cursorGroup.scale.set(1.1, 1.1, 1);
                 } else {
                     ringMat.color.setHex(0x00f2ff);
                     cursorGroup.scale.set(1, 1, 1);
@@ -334,17 +310,13 @@
             function connect() {
                 const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
                 ws = new WebSocket(`${protocol}//${window.location.host}/ws/hud`);
-                ws.onopen = () => addLog("HUD_CONNECTED: SYNC_READY", "var(--accent-color)");
+                ws.onopen = () => addLog("HUD_CONNECTED", "var(--accent-color)");
                 ws.onmessage = (e) => {
                     const data = JSON.parse(e.data);
-                    if (data.type === 'gesture') updateHUD(data);
-                    else if (data.type === 'status_update') {
+                    if (data.type === 'status_update') {
                         document.getElementById('status').innerText = data.message;
                         addLog(data.message, "var(--warn-color)");
-                        if (data.message === "SYSTEM_CORE: MEMORY_PURGED") {
-                            hideBrowser();
-                            lastSuggestedQuery = "";
-                        }
+                        if (data.message === "SYSTEM_CORE: MEMORY_PURGED") hideBrowser();
                     } else if (data.type === 'browser_screenshot') {
                         showBrowser(data.data);
                     } else if (data.text) {
@@ -353,7 +325,7 @@
                         speak(cleanText);
                         if (data.suggested_query) {
                             lastSuggestedQuery = data.suggested_query;
-                            addLog(`SUGGESTION: ${lastSuggestedQuery.toUpperCase()}`, "var(--accent-color)");
+                            addLog(`SAY 'YES' TO SEARCH: ${lastSuggestedQuery.toUpperCase()}`, "var(--accent-color)");
                         }
                     }
                 };
@@ -361,10 +333,7 @@
             }
 
             async function runAnalyze(autoSearch = false) {
-                if (!isVisionActive || !videoElement) {
-                    addLog("SCAN_ERROR: CAMERA_OFFLINE", "var(--warn-color)");
-                    return;
-                }
+                if (!isVisionActive || !videoElement) return;
                 const flash = document.getElementById('flash-effect');
                 flash.style.opacity = '1'; setTimeout(() => flash.style.opacity = '0', 100);
                 addLog("SCAN_INITIATED...", "var(--text-color)");
@@ -380,10 +349,10 @@
                         speak(data.text);
                         if (data.suggested_query) {
                             lastSuggestedQuery = data.suggested_query;
-                            addLog(`SAY 'YES' TO RESEARCH: ${lastSuggestedQuery.toUpperCase()}`, "var(--accent-color)");
+                            addLog(`SUGGESTION: ${lastSuggestedQuery.toUpperCase()}`, "var(--accent-color)");
                         }
                     }
-                } catch (err) { addLog("SCAN_ERROR: DATA_LINK_FAILURE", "var(--warn-color)"); }
+                } catch (err) { addLog("SCAN_ERROR", "var(--warn-color)"); }
             }
 
             function sendCommand(cmd) {
