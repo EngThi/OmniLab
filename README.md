@@ -1,53 +1,54 @@
-# [SYSTEM_OVERVIEW]: OMNILAB // TACTICAL_HUD_OS
+# OmniLab: Tactical AI Command HUD
 
-OmniLab is an advanced command interface integrating high-frequency computer vision, neural-link LLMs, and autonomous browser agents into a unified 3D Heads-Up Display. Designed for real-time environment analysis and decentralized research.
+OmniLab is an advanced command interface that integrates real-time computer vision, Large Language Models (LLMs), and autonomous browser agents into a unified 3D Heads-Up Display (HUD). Built for high-performance environment analysis and decentralized research, it leverages Gemini 3.1 to provide tactical heuristics.
 
-**[ACTIVE_DEMO_LINK]: https://dialog-fighting-numerical-geographic.trycloudflare.com/**
-*Protocol: Initialize sensors via [START_SENSORS] and activate [VOICE: OFFLINE] to begin session.*
+## Core Architecture
 
-## [COGNITIVE_ARCHITECTURE]
+OmniLab operates on a distributed framework designed for speed, intelligence, and stealth:
 
-The system operates on a distributed neural-link framework to maximize performance and evade detection protocols:
+*   **Intelligence Engine:** Powered by Gemini 3.1 Flash-Lite for real-time visual analysis and tactical suggestions.
+*   **3D Visualization:** A dynamic Three.js HUD with parallax movement, starfields, and reative UI elements.
+*   **Autonomous Research:** Playwright-based browser agents capable of searching via Google, Perplexity, and ChatGPT, with automatic DuckDuckGo fallback and advanced stealth/camouflage protocols.
+*   **Spatial Interaction:** Real-time gesture recognition via MediaPipe for hands-free control.
 
-- **Primary Processor:** Gemini 3.1 Flash-Lite (Real-time visual & tactical heuristics).
-- **Inference Node:** Hack Club Nest (Remote Command Center - Finland).
-- **Stealth Agent:** Playwright-based autonomous browser with DuckDuckGo fallback and cookie-masking.
+## Interface Protocols
 
-## [INPUT_PROTOCOLS]
+### Kinetic Gestures (Vision Engine)
+*   **Thumbs Up [👍]:** Triggers an environmental scan and AI frame analysis.
+*   **Victory [✌️]:** Hold for 1.5s to execute a **System Purge**, clearing memory and active sessions.
+*   **Pinch [🤏]:** Hold to confirm and execute suggested research queries.
+*   **Crossed Fingers [X]:** Close active satellite feed windows (Dual-hand gesture).
 
-### 1. KINETIC_GESTURES (Vision Engine)
-- **THUMBS_UP [👍]**: Triggers automatic environment scan and frame analysis.
-- **FIST [✊]**: HOLD FOR 1.5s to initiate **SYSTEM_PURGE**. Resets memory and kills sessions.
-- **PINCH [🤏]**: HOLD TO CHARGE suggested research queries. Completes energy ring to execute.
+### Voice Commands (Neural Link)
+*   **"Analyze" / "Scan":** Executes immediate visual capture for AI processing.
+*   **"Yes" / "Search":** Confirms research protocols suggested by the AI.
+*   **"Terminate" / "Close":** Emergency shutdown for active browser feeds.
 
-### 2. NEURAL_VOICE (STT Stream)
-- **"ANALYZE / SCAN"**: Executes immediate visual capture for AI processing.
-- **"YES / SEARCH"**: Manual confirmation for agent research protocols.
-- **"TERMINATE / RESET"**: Emergency kill-switch for all active remote processes.
+## Deployment Specifications
 
-## [DEPLOYMENT_SPECIFICATIONS]
+### Requirements
+*   Python 3.10+
+*   Chromium Engine (Playwright)
+*   Gemini API Key (configured in `.env`)
 
-### REQUIREMENTS
-- Python 3.10+
-- Chromium Engine (Managed via Playwright)
-- Valid GEMINI_API_KEY (Defined in .env)
-
-### INITIALIZATION_SEQUENCE
+### Installation
 ```bash
-# 1. Prepare Environment
-python -m venv venv && source venv/bin/activate
+# 1. Clone the repository and prepare the environment
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
 
-# 2. Synchronize Dependencies
+# 2. Install dependencies
 pip install -r requirements.txt
 python -m playwright install chromium
 
-# 3. Boot Core System
+# 3. Launch the system
 python server.py
 ```
 
-## [NETWORK_LAYER]
-Current telemetry is routed via **Cloudflare Zero-Trust Tunneling**, providing a secure uplink to the Finland-based datacenter.
+## Network & Connectivity
+The system is optimized for remote deployment using **Cloudflare Zero-Trust Tunnels**, ensuring a secure and stable uplink even on mobile or restricted networks.
 
 ---
-**[STATUS]: OPERATIONAL_LEVEL_100**
-**[AUTHOR]: EngThi // OmniLab_Core**
+
+**Status:** Operational
+**Developer:** EngThi / OmniLab Core

@@ -16,3 +16,7 @@ TESTES/
 LEMBRAR.txt
 server.log
 wakatime.zip
+.playwright_data/
+*.pem
+*.json
+.env

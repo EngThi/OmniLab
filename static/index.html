@@ -1,353 +1,386 @@
 <!DOCTYPE html>
 <html>
     <head>
-        <title>OmniLab HUD // HOMES_CORE_LOCAL</title>
+        <title>OmniLab // ELITE_V14.1</title>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+        <link href="https://fonts.googleapis.com/css2?family=Syncopate:wght@400;700&family=Space+Grotesk:wght@300;500;700&family=Space+Mono&display=swap" rel="stylesheet">
         <style>
             :root {
                 --bg-color: #000;
                 --text-color: #00f2ff;
-                --glow-color: #00f2ff;
-                --warn-color: #ff00ff;
-                --accent-color: #00ff00;
+                --accent-color: #00ffaa;
+                --warn-color: #ff0055;
+                --panel-bg: rgba(0, 5, 10, 0.4);
+                --neon-glow: 0 0 20px rgba(0, 242, 255, 0.8);
             }
-            body { 
-                margin: 0; overflow: hidden; background: var(--bg-color); 
-                color: var(--text-color); font-family: 'Courier New', monospace; 
-                text-transform: uppercase;
-            }
-            #ui-layer {
-                position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-                pointer-events: none; padding: 20px;
-                text-shadow: 0 0 10px var(--glow-color); z-index: 10;
-            }
-            .scanline {
-                width: 100%; height: 2px; background: rgba(0, 242, 245, 0.1);
-                position: absolute; animation: scan 4s linear infinite;
-            }
-            @keyframes scan { from {top: 0;} to {top: 100%;} }
-            
-            #control-panel {
-                position: absolute; bottom: 40px; right: 40px;
-                display: flex; flex-direction: column; align-items: flex-end;
-                pointer-events: auto; background: rgba(0, 0, 0, 0.5);
-                padding: 15px; border-right: 2px solid var(--text-color);
-            }
-            
-            #search-box {
-                background: rgba(0,0,0,0.6); border: 1px solid var(--text-color);
-                color: var(--text-color); padding: 10px; font-family: 'Courier New', monospace;
-                width: 180px; font-size: 0.8em; outline: none; margin-bottom: 10px;
-            }
-
-            .cmd-btn {
-                background: rgba(0, 242, 255, 0.1); border: 1px solid var(--text-color);
-                color: var(--text-color); padding: 10px 16px; font-family: 'Courier New', monospace;
-                font-size: 0.8em; cursor: pointer; margin-bottom: 8px; width: 180px;
-                text-align: right; transition: 0.2s;
-            }
-            .cmd-btn:hover { background: var(--text-color); color: #000; transform: translateX(-5px); }
-            .cmd-btn.special { border-color: var(--accent-color); color: var(--accent-color); }
-            .cmd-btn.warn { border-color: var(--warn-color); color: var(--warn-color); }
-
-            #log-console {
-                margin-top: 15px; font-size: 0.8em; max-width: 450px; height: 300px;
-                overflow-y: auto; border-left: 1px solid var(--text-color);
-                padding: 10px; display: flex; flex-direction: column;
-                background: rgba(0, 242, 255, 0.05);
-            }
-            .log-entry { margin-bottom: 8px; animation: fade 0.4s ease; word-wrap: break-word; }
-            @keyframes fade { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: translateX(0); } }
-            
-            #diag-panel { font-size: 0.7em; text-align: right; margin-top: 10px; opacity: 0.8; }
-
-            #browser-view {
-                position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-                width: 80%; height: 85%; background: rgba(0,0,0,0.9);
-                border: 2px solid var(--text-color); display: none; flex-direction: column;
-                z-index: 2000; pointer-events: auto;
-                box-shadow: 0 0 30px rgba(0, 242, 255, 0.2);
-            }
-            #browser-header { background: var(--text-color); color: #000; padding: 5px 15px; display: flex; justify-content: space-between; font-weight: bold; font-size: 0.8em; }
-            #browser-container { 
-                flex: 1; 
-                width: 100%; 
-                overflow-y: auto; 
-                background: #111;
-                scrollbar-width: thin;
-                scrollbar-color: var(--text-color) transparent;
-            }
+            * { box-sizing: border-box; cursor: none; }
+            body { margin: 0; overflow: hidden; background: var(--bg-color); color: var(--text-color); font-family: 'Space Grotesk', sans-serif; text-transform: uppercase; letter-spacing: 1px; }
+            canvas { position: fixed; top: 0; left: 0; z-index: 1; pointer-events: none; }
+            #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10; }
+            .scanline { width: 100%; height: 100%; position: absolute; top: 0; left: 0; background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.05) 50%); background-size: 100% 4px; z-index: 100; pointer-events: none; opacity: 0.1; }
+            .header { position: absolute; top: 60px; left: 80px; border-left: 3px solid var(--text-color); padding-left: 25px; }
+            .header h1 { margin: 0; font-family: 'Syncopate', sans-serif; font-size: 2.2em; letter-spacing: 15px; font-weight: 700; color: #fff; text-shadow: var(--neon-glow); }
+            #status-label { font-size: 0.7em; margin-top: 10px; opacity: 0.6; letter-spacing: 6px; color: var(--accent-color); font-weight: 500; }
+            #log-console { position: absolute; top: 180px; left: 80px; width: 460px; height: 440px; background: var(--panel-bg); border-left: 1px solid rgba(0, 242, 255, 0.2); padding: 25px; overflow-y: scroll; pointer-events: auto; font-family: 'Space Mono', monospace; scrollbar-width: none; backdrop-filter: blur(20px); mask-image: linear-gradient(to bottom, black 85%, transparent 100%); }
+            #log-console::-webkit-scrollbar { display: none; }
+            .log-entry { font-size: 0.72em; margin-bottom: 12px; animation: entry 0.4s ease; line-height: 1.6; opacity: 0.7; border-bottom: 1px solid rgba(255,255,255,0.02); padding-bottom: 8px; }
+            .log-entry.system { color: var(--accent-color); opacity: 1; font-weight: bold; }
+            .log-entry.warn { color: var(--warn-color); opacity: 1; font-weight: bold; }
+            .log-entry.prompt { color: #fff; background: rgba(0, 255, 170, 0.1); border-left: 3px solid var(--accent-color); padding-left: 10px; opacity: 1; }
+            #control-panel { position: absolute; bottom: 80px; right: 80px; width: 340px; display: flex; flex-direction: column; gap: 8px; pointer-events: auto; }
+            .engine-bar { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin-bottom: 5px; }
+            .eng-btn { background: transparent; border: 1px solid rgba(255, 255, 255, 0.1); color: rgba(0, 242, 255, 0.5); font-size: 0.6em; cursor: pointer; padding: 10px 0; transition: 0.3s; font-family: 'Syncopate', sans-serif; font-weight: 700; letter-spacing: 1px; }
+            .eng-btn.active { color: #fff; border-color: var(--text-color); box-shadow: 0 0 20px rgba(0, 242, 255, 0.3); background: rgba(0, 242, 255, 0.1); }
+            #search-box, #tts-input { background: rgba(0,0,0,0.6); border: 1px solid rgba(0, 242, 255, 0.2); color: #fff; padding: 15px; font-family: inherit; width: 100%; outline: none; font-size: 0.9em; text-align: center; transition: 0.3s; }
+            #tts-input { background: rgba(0, 255, 170, 0.05); border-color: rgba(0, 255, 170, 0.2); font-size: 0.7em; padding: 10px; color: var(--accent-color); }
+            #search-box:focus { border-bottom-color: var(--accent-color); background: rgba(0, 255, 170, 0.05); }
+            .cmd-btn { background: rgba(255, 255, 255, 0.02); border: none; border-right: 2px solid var(--text-color); color: var(--text-color); padding: 14px 20px; cursor: pointer; font-size: 0.75em; transition: 0.4s; text-align: right; font-weight: 700; letter-spacing: 2px; }
+            .cmd-btn:hover { background: rgba(0, 242, 255, 0.05); color: #fff; text-shadow: 0 0 10px var(--text-color); }
+            .cmd-btn.special { border-right-color: var(--accent-color); color: var(--accent-color); }
+            .cmd-btn.warn { border-right-color: var(--warn-color); color: var(--warn-color); }
+            #browser-view { position: absolute; top: 45%; left: 50%; transform: translate(-50%, -50%); width: 85%; height: 80%; background: #000; border: 1px solid rgba(255, 255, 255, 0.15); display: none; flex-direction: column; z-index: 2000; pointer-events: auto; box-shadow: 0 0 180px rgba(0,0,0,1); backdrop-filter: blur(40px); }
+            #browser-header { background: rgba(10, 15, 20, 0.98); color: #fff; padding: 15px 30px; display: flex; justify-content: space-between; align-items: center; font-weight: 700; font-size: 0.75em; letter-spacing: 5px; font-family: 'Syncopate'; border-bottom: 1px solid #222; }
+            .close-trigger { cursor: pointer; color: var(--warn-color); border: 1px solid var(--warn-color); padding: 5px 15px; transition: 0.3s; }
+            .close-trigger:hover { background: var(--warn-color); color: #fff; box-shadow: 0 0 15px var(--warn-color); }
+            #browser-container { flex: 1; overflow-y: auto; background: #000; scrollbar-width: thin; scrollbar-color: var(--text-color) #000; }
             #browser-container::-webkit-scrollbar { width: 6px; }
-            #browser-container::-webkit-scrollbar-thumb { background: var(--text-color); }
-            #browser-content { width: 100%; display: block; height: auto; }
+            #browser-container::-webkit-scrollbar-track { background: #000; }
+            #browser-container::-webkit-scrollbar-thumb { background: var(--text-color); border-radius: 10px; }
+            #browser-content { width: 100%; height: auto; display: block; filter: brightness(0.95); }
+            #action-container { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 440px; display: none; text-align: center; z-index: 5000; }
+            #action-label { font-size: 1.4em; color: var(--warn-color); margin-bottom: 15px; letter-spacing: 12px; font-weight: 700; font-family: 'Syncopate'; }
+            #action-bar { width: 100%; height: 8px; background: rgba(255,255,255,0.05); border-radius: 4px; overflow: hidden; border: 1px solid rgba(255,0,85,0.3); }
+            #action-progress { width: 0%; height: 100%; background: var(--warn-color); box-shadow: 0 0 40px var(--warn-color); }
+            #diag { position: absolute; bottom: 80px; left: 80px; font-size: 0.7em; opacity: 0.4; letter-spacing: 5px; font-weight: 500; }
+            #gesture-display { transition: 0.2s; display: inline-block; }
+            .gesture-active { animation: pulseText 0.3s ease-in-out; color: #fff !important; text-shadow: 0 0 15px var(--accent-color); }
+            @keyframes pulseText { 0% { transform: scale(1); } 50% { transform: scale(1.3); } 100% { transform: scale(1); } }
+            #custom-mouse { position: fixed; width: 22px; height: 22px; border: 2px solid var(--text-color); border-radius: 50%; pointer-events: none; z-index: 10000; transform: translate(-50%, -50%); box-shadow: 0 0 12px var(--text-color); transition: transform 0.1s; }
+            #custom-mouse::after { content: ''; position: absolute; top: 50%; left: 50%; width: 4px; height: 4px; background: #fff; border-radius: 50%; transform: translate(-50%, -50%); }
         </style>
     </head>
     <body>
+        <div id="custom-mouse"></div>
         <div class="scanline"></div>
+        <div id="flash-effect" style="position:fixed;top:0;left:0;width:100%;height:100%;background:#fff;opacity:0;pointer-events:none;z-index:9999;"></div>
+        <div id="action-container">
+            <div id="action-label">PURGE ACTIVE</div>
+            <div id="action-bar"><div id="action-progress"></div></div>
+        </div>
         <div id="ui-layer">
-            <h2 style="margin: 0;">OMNILAB // CORE_LOCAL</h2>
-            <div id="status">SYSTEM: STANDBY</div>
-            <div id="log-console"></div>
-
-            <div id="control-panel">
-                <input type="text" id="search-box" placeholder="URL OR SEARCH..." />
-                <button class="cmd-btn special" id="vision-btn" onclick="initVision()">INIT_SENSORS</button>
-                <button class="cmd-btn" onclick="runAnalyze()">SCAN_ENV</button>
-                <button class="cmd-btn special" onclick="sendCommand('analyze_and_search')">HOMES_SEARCH</button>
-                <button class="cmd-btn warn" onclick="sendCommand('close_browser')">TERMINATE</button>
-                
-                <div id="diag-panel">
-                    <div id="fps">FPS: 00</div>
-                    <div id="geo" style="color: var(--accent-color); font-size: 0.9em; margin: 4px 0;">NODE: LOCAL_LAB [HOME]</div>
-                    <div id="gesture-display" style="color: var(--accent-color)">GESTURE: NONE</div>
-                    <div id="model">CORE: GEMINI-3.1-LOCAL</div>
-                </div>
+            <div class="header">
+                <h1>OMNILAB</h1>
+                <div id="status-label">NEURAL_LINK // UPLINK_ACTIVE</div>
             </div>
-
+            <div id="log-console"></div>
+            <div id="control-panel">
+                <div class="engine-bar">
+                    <button class="eng-btn active" id="eng-google" onclick="setEngine('google')">GOOGLE</button>
+                    <button class="eng-btn" id="eng-perplexity" onclick="setEngine('perplexity')">PERPLEXITY</button>
+                    <button class="eng-btn" id="eng-gemini" onclick="setEngine('gemini')">GEMINI</button>
+                    <button class="eng-btn" id="eng-chatgpt" onclick="setEngine('chatgpt')">CHATGPT</button>
+                </div>
+                <input type="text" id="tts-input" placeholder="VOICE_SYNTH_PROMPT" onkeydown="if(event.key==='Enter') manualSpeak()" />
+                <input type="text" id="search-box" placeholder="TARGET_IDENTIFIER" />
+                <button class="cmd-btn" id="audio-btn" onclick="toggleTTS()">AUDIO_OUTPUT: ON</button>
+                <button class="cmd-btn" id="mic-btn" onclick="toggleMic()">VOICE_INPUT: OFF</button>
+                <button class="cmd-btn special" id="vision-btn" onclick="toggleVision()">ACTIVATE CAMERA</button>
+                <button class="cmd-btn" id="scan-btn" onclick="runAnalyze(false)">ENVIRONMENT SCAN</button>
+                <button class="cmd-btn special" onclick="sendCommand('analyze_and_search')">EXECUTE RESEARCH</button>
+                <button class="cmd-btn warn" onclick="sendCommand('close_browser')">SHUTDOWN SYSTEM</button>
+            </div>
+            <div id="diag">GESTURE: <span id="gesture-display">NONE</span> // SYSTEM V5</div>
             <div id="browser-view">
                 <div id="browser-header">
-                    <span>REMOTE_BROWSER_FEED</span>
-                    <span onclick="hideBrowser()" style="cursor:pointer">[X]</span>
+                    <span>SAT_INTEL_STREAM // ENCRYPTED</span>
+                    <div class="close-trigger" onclick="hideBrowser()">[ X ]</div>
                 </div>
-                <div id="browser-container">
-                    <img id="browser-content" src="" />
-                </div>
+                <div id="browser-container"><img id="browser-content" src="" /></div>
             </div>
         </div>
-
         <script>
-            // --- TELEMETRIA & LIMPEZA ---
-            function cleanTacticalText(text) {
-                if (!text) return "";
-                return text.replace(/[\*#\-_\[\]\(\)>]/g, "").replace(/\s+/g, " ").trim().toUpperCase();
-            }
+            const userLang = navigator.language || 'en-US';
+            const mouseCursor = document.getElementById('custom-mouse');
+            document.addEventListener('mousemove', (e) => { mouseCursor.style.left = e.clientX + 'px'; mouseCursor.style.top = e.clientY + 'px'; });
 
-            // --- THREE.JS HUD ---
+            let lastSuggestedQuery = "", currentEngine = "google", isMicActive = false, isScanning = false, lastXTriggerTime = 0, actionHoldTime = 0, isTTSActive = true, voices = [];
+            const HOLD_THRESHOLD = 1500;
+
             const scene = new THREE.Scene();
             const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
             const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true});
             renderer.setSize(window.innerWidth, window.innerHeight);
             document.body.appendChild(renderer.domElement);
 
+            const starGeometry = new THREE.BufferGeometry();
+            const starCount = 4000;
+            const starPos = new Float32Array(starCount * 3);
+            for(let i=0; i<starCount*3; i++) starPos[i] = (Math.random() - 0.5) * 120;
+            starGeometry.setAttribute('position', new THREE.BufferAttribute(starPos, 3));
+            const stars = new THREE.Points(starGeometry, new THREE.PointsMaterial({ color: 0x00f2ff, size: 0.07, transparent: true, opacity: 0.5 }));
+            scene.add(stars);
+
             const cursorGroup = new THREE.Group();
-            const ringMat = new THREE.MeshBasicMaterial({ color: 0x00f2ff, transparent: true, opacity: 0.8, side: THREE.DoubleSide });
-            const innerRing = new THREE.Mesh(new THREE.RingGeometry(0.8, 1, 32), ringMat);
-            const outerRing = new THREE.Mesh(new THREE.RingGeometry(1.2, 1.3, 4, 1), ringMat);
-            cursorGroup.add(innerRing, outerRing);
+            const ringMat = new THREE.MeshBasicMaterial({ color: 0x00f2ff, transparent: true, opacity: 0.9, side: THREE.DoubleSide });
+            const r1 = new THREE.Mesh(new THREE.RingGeometry(0.8, 0.9, 64), ringMat);
+            const r2 = new THREE.Mesh(new THREE.RingGeometry(1.0, 1.2, 4, 1), ringMat);
+            const r3 = new THREE.Mesh(new THREE.RingGeometry(1.4, 1.45, 32), ringMat);
+            const cPoint = new THREE.Mesh(new THREE.CircleGeometry(0.15, 16), new THREE.MeshBasicMaterial({color: 0xffffff, transparent: true, opacity: 1}));
+            cursorGroup.add(r1, r2, r3, cPoint);
             scene.add(cursorGroup);
-            
-            const grid = new THREE.GridHelper(100, 40, 0x00f2ff, 0x002222);
-            grid.rotation.x = Math.PI / 2; grid.position.z = -20;
-            scene.add(grid);
             camera.position.z = 15;
 
-            // --- VISION ENGINE (ES MODULES) ---
+            const grid = new THREE.GridHelper(100, 40, 0x00f2ff, 0x001515);
+            grid.rotation.x = Math.PI / 2; grid.position.z = -25;
+            scene.add(grid);
+
+            function update3D(x, y) {
+                const targetX = ((1 - x) - 0.5) * 35;
+                const targetY = (0.5 - y) * 22;
+                cursorGroup.position.x += (targetX - cursorGroup.position.x) * 0.3;
+                cursorGroup.position.y += (targetY - cursorGroup.position.y) * 0.3;
+                if (isVisionActive) {
+                    const tiltX = (y - 0.5) * 18; const tiltY = (x - 0.5) * 18;
+                    document.getElementById('ui-layer').style.transform = `perspective(1000px) rotateX(${tiltX}deg) rotateY(${tiltY}deg)`;
+                } else {
+                    document.getElementById('ui-layer').style.transform = `perspective(1000px) rotateX(0deg) rotateY(0deg)`;
+                }
+            }
+
+            function loadVoices() { voices = window.speechSynthesis.getVoices(); if (voices.length > 0) addLog(`VOICES_SYNCED: ${userLang.toUpperCase()}`, "system"); }
+            window.speechSynthesis.onvoiceschanged = loadVoices;
+            loadVoices();
+
+            function speak(text) {
+                if (!isTTSActive || !('speechSynthesis' in window)) return;
+                if (voices.length === 0) { loadVoices(); setTimeout(() => speak(text), 500); return; }
+                window.speechSynthesis.cancel();
+                const u = new SpeechSynthesisUtterance(text);
+                u.lang = userLang; u.rate = 1.1;
+                u.voice = voices.find(v => v.lang.startsWith(userLang.split('-')[0])) || voices[0];
+                window.speechSynthesis.speak(u);
+            }
+
+            function manualSpeak() {
+                const input = document.getElementById('tts-input');
+                if (input.value) { addLog(`MANUAL_VOX: ${input.value.toUpperCase()}`, "system"); speak(input.value); input.value = ""; }
+            }
+
+            function addLog(text, type = "") {
+                const consoleEl = document.getElementById('log-console');
+                const entry = document.createElement('div');
+                entry.className = `log-entry ${type}`; entry.innerText = `> ${text}`;
+                consoleEl.appendChild(entry); consoleEl.scrollTop = consoleEl.scrollHeight;
+                if (consoleEl.childNodes.length > 80) consoleEl.firstChild.remove();
+            }
+
+            function toggleTTS() {
+                isTTSActive = !isTTSActive;
+                const btn = document.getElementById('audio-btn');
+                btn.innerText = isTTSActive ? "AUDIO ON" : "AUDIO MUTED";
+                btn.classList.toggle('active', isTTSActive);
+                addLog(isTTSActive ? "AUDIO SYSTEM: ONLINE" : "AUDIO SYSTEM: SILENCED", "system");
+            }
+
+            function toggleMic() { if (isMicActive) stopMic(); else startMic(); }
+            function startMic() { if (recognition) try { recognition.start(); } catch(e) {} }
+            function stopMic() { isMicActive = false; if (recognition) recognition.stop(); document.getElementById('mic-btn').innerText = "VOICE OFF"; document.getElementById('mic-btn').classList.remove('active'); addLog("VOX_LINK: DISCONNECTED", "warn"); }
+
+            function processVoiceCommand(cmd) {
+                const isConfirm = cmd.includes("yes") || cmd.includes("sim") || cmd.includes("search") || cmd.includes("pesquisar");
+                const isScan = cmd.includes("analyze") || cmd.includes("scan") || cmd.includes("analisar");
+                if (isScan) { runAnalyze(false); }
+                else if (isConfirm && lastSuggestedQuery) { confirmResearch(); }
+                else if (cmd.includes("terminate") || cmd.includes("kill")) { sendCommand("close_browser"); }
+            }
+
+            function confirmResearch() {
+                if (!lastSuggestedQuery) return;
+                document.getElementById("search-box").value = lastSuggestedQuery;
+                addLog(`CMD_AUTO: RESEARCHING [${lastSuggestedQuery.toUpperCase()}]`, "system");
+                sendCommand("analyze_and_search");
+                lastSuggestedQuery = "";
+            }
+
             let handLandmarker;
-            let videoElement;
+            let videoElement = null;
             let visionWs;
             let lastVideoTime = -1;
-            let isLockActive = false;
+            let isVisionActive = false;
 
-            async function initVision() {
-                addLog("INIT_SENSORS_PROTOCOL...", "var(--accent-color)");
-                videoElement = document.createElement("video");
-                videoElement.style.display = "none";
-                videoElement.autoplay = true;
-                document.body.appendChild(videoElement);
-
+            async function preloadModels() {
                 try {
                     const vision = await import("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.0");
                     const { HandLandmarker, FilesetResolver } = vision;
                     const vision_wasm = await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.0/wasm");
                     handLandmarker = await HandLandmarker.createFromOptions(vision_wasm, {
-                        baseOptions: { 
-                            modelAssetPath: "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task", 
-                            delegate: "GPU" 
-                        },
-                        runningMode: "VIDEO", numHands: 1
+                        baseOptions: { modelAssetPath: "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task", delegate: "GPU" },
+                        runningMode: "VIDEO", numHands: 2
                     });
-                    addLog("MEDIAPIPE: ENGINE_READY", "var(--accent-color)");
-                    startWebcam();
-                } catch (e) {
-                    addLog("VISION_ERROR: MODULE_FAILED", "var(--warn-color)");
-                }
+                    addLog("COGNITIVE MODULES: READY", "system");
+                } catch (e) { addLog("VISION ERROR", "warn"); }
             }
+            preloadModels();
 
-            function startWebcam() {
-                navigator.mediaDevices.getUserMedia({ video: true }).then((stream) => {
-                    addLog("CAMERA: ONLINE", "var(--accent-color)");
-                    videoElement.srcObject = stream;
+            async function toggleVision() { if (isVisionActive) stopVision(); else startVision(); }
+
+            async function startVision() {
+                if (!handLandmarker) await preloadModels();
+                isVisionActive = true;
+                if (!videoElement) { videoElement = document.createElement("video"); videoElement.setAttribute("playsinline", ""); videoElement.style.display = "none"; document.body.appendChild(videoElement); }
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                    videoElement.srcObject = stream; videoElement.play();
                     videoElement.onloadeddata = () => {
-                        document.getElementById('vision-btn').innerText = "SENSORS: ACTIVE";
-                        connectVisionWS();
-                        requestAnimationFrame(predictWebcam);
+                        const vBtn = document.getElementById('vision-btn');
+                        if (vBtn) { vBtn.innerText = "CAMERA ACTIVE"; vBtn.classList.add('active'); }
+                        const sLabel = document.getElementById('status-label');
+                        if (sLabel) sLabel.innerText = "STATUS: TRACKING_LIVE";
+                        connectVisionWS(); requestAnimationFrame(predictWebcam);
                     };
-                });
+                } catch (e) { addLog("SENSOR ERROR", "warn"); isVisionActive = false; }
             }
 
-            function connectVisionWS() {
-                visionWs = new WebSocket(`ws://${window.location.host}/ws/vision`);
+            function stopVision() {
+                isVisionActive = false;
+                if (videoElement?.srcObject) videoElement.srcObject.getTracks().forEach(t => t.stop());
+                const vBtn = document.getElementById('vision-btn');
+                if (vBtn) { vBtn.innerText = "ACTIVATE CAMERA"; vBtn.classList.remove('active'); }
+                const sLabel = document.getElementById('status-label');
+                if (sLabel) sLabel.innerText = "STATUS: STANDBY";
+                addLog("SENSORS: SHUTDOWN", "warn");
+                resetAction(); update3D(0.5, 0.5);
             }
 
-            // --- GESTURES & SMOOTHING ---
-            let framesProcessed = 0;
-            let lastFpsTime = Date.now();
-            let currentFps = 0;
+            function resetAction() { actionHoldTime = 0; document.getElementById('action-container').style.display = 'none'; }
+            function connectVisionWS() { const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'; visionWs = new WebSocket(`${protocol}//${window.location.host}/ws/vision`); }
 
             function predictWebcam() {
+                if (!isVisionActive) return;
                 let nowInMs = Date.now();
-                if (videoElement.currentTime !== lastVideoTime) {
+                if (videoElement && videoElement.currentTime !== lastVideoTime) {
                     lastVideoTime = videoElement.currentTime;
                     const results = handLandmarker.detectForVideo(videoElement, nowInMs);
-                    
-                    framesProcessed++;
-                    if (nowInMs - lastFpsTime > 1000) {
-                        currentFps = framesProcessed;
-                        framesProcessed = 0;
-                        lastFpsTime = nowInMs;
-                    }
-
                     if (results.landmarks && results.landmarks.length > 0) {
-                        const l = results.landmarks[0];
-                        const gesture = detectGestureType(l);
-                        const gestureData = { 
-                            type: "gesture", 
-                            x: l[8].x, y: l[8].y, 
-                            gesture: gesture.type, 
-                            pinch_progress: gesture.pinch_progress,
-                            fps: currentFps 
-                        };
+                        const mainHand = results.landmarks[0];
+                        const gestureData = { type: "gesture", x: mainHand[8].x, y: mainHand[8].y, gesture: "open" };
+                        const dPinch = Math.hypot(mainHand[4].x - mainHand[8].x, mainHand[4].y - mainHand[8].y);
+                        const isVictory = mainHand[8].y < mainHand[6].y && mainHand[12].y < mainHand[10].y && mainHand[16].y > mainHand[14].y;
+                        const isThumbsUp = mainHand[4].y < mainHand[3].y && mainHand[4].y < mainHand[8].y - 0.1 && mainHand[8].y > mainHand[6].y;
+                        let isCrossedX = false;
+                        if (results.landmarks.length === 2) {
+                            const hand2 = results.landmarks[1];
+                            const dX = Math.hypot(mainHand[8].x - hand2[8].x, mainHand[8].y - hand2[8].y);
+                            if (dX < 0.08) isCrossedX = true;
+                        }
+                        if (isCrossedX) {
+                            gestureData.gesture = "close_x";
+                            if (nowInMs - lastXTriggerTime > 2000) { hideBrowser(); addLog("GESTURE_CMD: FEED_DISCONNECTED", "warn"); lastXTriggerTime = nowInMs; }
+                        }
+                        else if (dPinch < 0.05) gestureData.gesture = "pinch";
+                        else if (isVictory) gestureData.gesture = "victory";
+                        else if (isThumbsUp) gestureData.gesture = "thumbs_up";
+
+                        if (gestureData.gesture === "thumbs_up" && !isScanning) runAnalyze(false);
+                        else if (gestureData.gesture === "pinch" && lastSuggestedQuery && !isScanning) confirmResearch();
+
+                        if (gestureData.gesture === "victory" && !isScanning) {
+                            if (actionHoldTime === 0) actionHoldTime = nowInMs;
+                            const elapsed = nowInMs - actionHoldTime;
+                            const prog = Math.min((elapsed / HOLD_THRESHOLD) * 100, 100);
+                            document.getElementById('action-container').style.display = 'block';
+                            document.getElementById('action-progress').style.width = prog + '%';
+                            if (elapsed > HOLD_THRESHOLD) { addLog("PURGE EXECUTED", "warn"); sendCommand("close_browser"); actionHoldTime = nowInMs + 5000; }
+                        } else { resetAction(); }
                         if (visionWs?.readyState === 1) visionWs.send(JSON.stringify(gestureData));
-                        updateHUD(gestureData);
-                    }
-                }
+                        update3D(mainHand[8].x, mainHand[8].y);
+                        updateHUD(gestureData, results.landmarks.length);
+                    } else { resetAction(); update3D(0.5, 0.5); }
+                } else if (Date.now() - nowInMs > 500) { resetAction(); }
                 requestAnimationFrame(predictWebcam);
             }
 
-            function detectGestureType(landmarks) {
-                const thumb_tip = landmarks[4];
-                const index_tip = landmarks[8];
-                const middle_tip = landmarks[12];
-                const wrist = landmarks[0];
-
-                const dist_pinch = Math.hypot(thumb_tip.x - index_tip.x, thumb_tip.y - index_tip.y);
-                const dist_fist = Math.hypot(index_tip.x - wrist.x, index_tip.y - wrist.y);
-
-                if (dist_pinch < 0.04) return { type: "pinch", pinch_progress: 1.0 };
-                if (dist_fist < 0.25) return { type: "fist", pinch_progress: 0 };
-                if (thumb_tip.y < index_tip.y - 0.1) return { type: "thumbs_up", pinch_progress: 0 };
-                
-                return { type: "open", pinch_progress: 0 };
+            function updateHUD(data, handCount) {
+                const gDisp = document.getElementById('gesture-display');
+                if (gDisp) {
+                    const oldText = gDisp.innerText; gDisp.innerText = data.gesture.toUpperCase();
+                    if (oldText !== gDisp.innerText && data.gesture !== "open") { gDisp.classList.remove('gesture-active'); void gDisp.offsetWidth; gDisp.classList.add('gesture-active'); }
+                }
+                if (data.gesture === "victory") ringMat.color.setHex(0xff0055);
+                else if (data.gesture === "pinch") ringMat.color.setHex(0x00ffaa);
+                else if (handCount === 2) ringMat.color.setHex(0xffff00);
+                else ringMat.color.setHex(0x00f2ff);
             }
 
-            function updateHUD(data) {
-                document.getElementById('gesture-display').innerText = `GESTURE: ${data.gesture.toUpperCase()}`;
-                
-                // --- LOCK TARGET LOGIC (FIST) ---
-                if (data.gesture === "fist") {
-                    isLockActive = true;
-                    ringMat.color.setHex(0xff00ff);
-                } else {
-                    isLockActive = false;
-                    ringMat.color.setHex(0x00f2ff);
-                }
-
-                // --- SMOOTHING ---
-                const targetX = isLockActive ? 0 : ((1 - data.x) - 0.5) * 35;
-                const targetY = isLockActive ? 0 : (0.5 - data.y) * 22;
-                
-                cursorGroup.position.x += (targetX - cursorGroup.position.x) * 0.12;
-                cursorGroup.position.y += (targetY - cursorGroup.position.y) * 0.12;
-                
-                if (data.pinch_progress > 0.5) {
-                    cursorGroup.scale.set(0.6, 0.6, 1);
-                    outerRing.rotation.z += 0.2;
-                } else {
-                    cursorGroup.scale.set(1, 1, 1);
-                }
-
-                if (data.fps) document.getElementById('fps').innerText = `FPS: ${data.fps}`;
-            }
-
-            // --- WS HUD ---
-            let ws;
-            function connect() {
-                ws = new WebSocket(`ws://${window.location.host}/ws/hud`);
-                ws.onopen = () => addLog("SYSTEM: LOCAL_HUB_READY", "var(--accent-color)");
-                ws.onmessage = (e) => {
-                    const data = JSON.parse(e.data);
-                    if (data.type === 'gesture') updateHUD(data);
-                    else if (data.type === 'status_update') addLog(data.message, "var(--warn-color)");
-                    else if (data.type === 'browser_screenshot') showBrowser(data.data);
-                    else if (data.text) {
-                        const cleanText = cleanTacticalText(data.text);
-                        addLog(`ANALYSIS: ${cleanText}`, '#fff');
-                        speak(cleanText);
+            var recognition;
+            if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+                const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+                recognition = new SpeechRecognition();
+                recognition.continuous = true; recognition.interimResults = true; recognition.lang = userLang;
+                recognition.onstart = () => { isMicActive = true; document.getElementById('mic-btn').innerText = "VOICE: LISTENING"; document.getElementById('mic-btn').classList.add('active'); addLog("VOX_LINK: ESTABLISHED", "system"); };
+                recognition.onresult = (event) => {
+                    let transcript = '';
+                    for (let i = event.resultIndex; i < event.results.length; ++i) {
+                        transcript += event.results[i][0].transcript;
+                        if (event.results[i].isFinal) { 
+                            const cmdStr = transcript.toLowerCase().trim();
+                            addLog(`SIGNAL_RCVD: ${cmdStr.toUpperCase()}`, "#fff"); 
+                            processVoiceCommand(cmdStr); 
+                        }
                     }
                 };
+                recognition.onend = () => { if (isMicActive) recognition.start(); };
             }
 
-            async function runAnalyze() {
-                if (!videoElement) return;
-                addLog("SCAN_INITIATED...", "var(--text-color)");
-                const canvas = document.createElement("canvas");
-                canvas.width = videoElement.videoWidth; canvas.height = videoElement.videoHeight;
-                canvas.getContext("2d").drawImage(videoElement, 0, 0);
-                const imageBase64 = canvas.toDataURL("image/jpeg", 0.72).split(",")[1];
-                const res = await fetch("/analyze", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ image: imageBase64 }) });
-                const data = await res.json();
-                if (data.text) {
-                    const cleanText = cleanTacticalText(data.text);
-                    addLog(`ANALYSIS: ${cleanText}`, "#fff");
-                    speak(cleanText);
-                }
+            let ws;
+            function connect() {
+                const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+                ws = new WebSocket(`${protocol}//${window.location.host}/ws/hud`);
+                ws.onopen = () => addLog("SYSTEM SYNCED", "system");
+                ws.onmessage = (e) => {
+                    const data = JSON.parse(e.data);
+                    if (data.type === 'status_update') {
+                        addLog(`SIGNAL: ${data.message}`, data.message.includes('WARN') ? 'warn' : 'system');
+                        if (data.message.includes("PURGED")) { hideBrowser(); lastSuggestedQuery = ""; }
+                    } else if (data.type === 'browser_screenshot') {
+                        showBrowser(data.data);
+                    } else if (data.text) {
+                        const cleanText = cleanTacticalText(data.text);
+                        addLog(`INTEL: ${cleanText}`, '#fff');
+                        speak(data.text);
+                        if (data.suggested_query) { lastSuggestedQuery = data.suggested_query; addLog(`[SAY 'YES' OR PINCH TO EXECUTE]`, "prompt"); addLog(`SUGGESTION: ${lastSuggestedQuery.toUpperCase()}`, "system"); }
+                    }
+                };
+                ws.onclose = () => setTimeout(connect, 3000);
             }
 
-            function sendCommand(cmd) {
-                addLog(`CMD: ${cmd.toUpperCase()}`, "var(--accent-color)");
-                if (cmd === "analyze_and_search") {
-                    const searchVal = document.getElementById("search-box").value;
-                    if (ws?.readyState === 1) ws.send(JSON.stringify({ type: "command", command: "analyze_and_search", query: searchVal || "" }));
-                } else if (cmd === "close_browser" && ws?.readyState === 1) {
-                    hideBrowser();
-                    ws.send(JSON.stringify({ type: "command", command: cmd }));
-                }
+            async function runAnalyze(autoSearch = false) {
+                if (isScanning || !isVisionActive || !videoElement) return;
+                isScanning = true; addLog("ANALYZING ENVIRONMENT...", "system");
+                try {
+                    const canvas = document.createElement("canvas");
+                    canvas.width = videoElement.videoWidth; canvas.height = videoElement.videoHeight;
+                    canvas.getContext("2d").drawImage(videoElement, 0, 0);
+                    const imgB64 = canvas.toDataURL("image/jpeg", 0.7).split(",")[1];
+                    const res = await fetch("/analyze", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ image: imgB64 }) });
+                    const data = await res.json();
+                    if (data.text) {
+                        addLog(`RESULT: ${cleanTacticalText(data.text)}`, "#fff");
+                        speak(data.text);
+                        if (data.suggested_query) { lastSuggestedQuery = data.suggested_query; addLog(`[SAY 'YES' OR PINCH TO EXECUTE]`, "prompt"); }
+                    }
+                } catch (err) { addLog("SCAN FAILED", "warn"); }
+                setTimeout(() => { isScanning = false; }, 5000);
             }
 
-            function speak(text) {
-                if ('speechSynthesis' in window) {
-                    window.speechSynthesis.cancel();
-                    const utterance = new SpeechSynthesisUtterance(text);
-                    utterance.lang = 'en-US';
-                    utterance.rate = 1.1; 
-                    window.speechSynthesis.speak(utterance);
-                }
-            }
-
-            function addLog(text, color = "var(--text-color)") {
-                const console = document.getElementById('log-console');
-                const entry = document.createElement('div');
-                entry.className = 'log-entry';
-                entry.innerText = `> ${text}`;
-                entry.style.color = color;
-                console.appendChild(entry);
-                console.scrollTop = console.scrollHeight;
-            }
-
-            function showBrowser(base64Data) {
-                document.getElementById('browser-content').src = `data:image/jpeg;base64,${base64Data}`;
-                document.getElementById('browser-view').style.display = 'flex';
-            }
             function hideBrowser() { document.getElementById('browser-view').style.display = 'none'; }
-
-            function animate() { 
-                requestAnimationFrame(animate); 
-                innerRing.rotation.z += 0.02;
-                outerRing.rotation.z -= 0.01;
-                renderer.render(scene, camera); 
-            }
-            animate();
-            connect();
+            function showBrowser(base64Data) { addLog("FEED ONLINE", "system"); document.getElementById('browser-content').src = `data:image/jpeg;base64,${base64Data}`; document.getElementById('browser-view').style.display = 'flex'; document.getElementById('browser-container').scrollTop = 0; }
+            function sendCommand(cmd) { const q = document.getElementById("search-box").value; if (ws?.readyState === 1) { if (cmd === "analyze_and_search") ws.send(JSON.stringify({ type: "command", command: "analyze_and_search", query: q || lastSuggestedQuery, engine: currentEngine })); else ws.send(JSON.stringify({ type: "command", command: cmd })); } }
+            function setEngine(eng) { currentEngine = eng; document.querySelectorAll('.eng-btn').forEach(btn => btn.classList.remove('active')); document.getElementById(`eng-${eng}`).classList.add('active'); addLog(`TARGET SYNCED: ${eng.toUpperCase()}`, "system"); }
+            function cleanTacticalText(t) { return t ? t.replace(/[\*#\-_\[\]\(\)>]/g, "").replace(/\s+/g, " ").toUpperCase() : ""; }
+            function animate() { requestAnimationFrame(animate); stars.rotation.y += 0.001; stars.rotation.x += 0.0005; r1.rotation.z += 0.025; r2.rotation.y += 0.05; r3.rotation.z -= 0.015; renderer.render(scene, camera); }
+            connect(); animate();
+            window.addEventListener('click', () => { if(isTTSActive) { const silent = new SpeechSynthesisUtterance(""); window.speechSynthesis.speak(silent); } }, {once: true});
         </script>
     </body>
 </html>

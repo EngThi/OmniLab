@@ -52,16 +52,21 @@
             .cmd-btn.active { background: var(--accent-color); color: #000; box-shadow: 0 0 15px var(--accent-color); }
 
             #log-console {
-                margin-top: 15px; font-size: 0.8em; max-width: 450px; height: 300px;
-                overflow-y: auto; border-left: 1px solid var(--text-color);
-                padding: 10px; display: flex; flex-direction: column;
-                background: rgba(0, 242, 255, 0.05);
-                scrollbar-width: thin; scrollbar-color: var(--text-color) transparent;
+                margin-top: 10px; font-size: 0.85em; max-width: 450px; height: 350px;
+                overflow-y: scroll; border-left: 2px solid var(--text-color);
+                padding: 15px; display: flex; flex-direction: column;
+                background: rgba(0, 242, 255, 0.08);
+                pointer-events: auto;
+                scrollbar-width: thin; scrollbar-color: var(--text-color) rgba(0,0,0,0.3);
             }
-            .log-entry { margin-bottom: 8px; animation: fade 0.4s ease; line-height: 1.4; word-wrap: break-word; }
+            #log-console::-webkit-scrollbar { width: 8px; }
+            #log-console::-webkit-scrollbar-track { background: rgba(0,0,0,0.3); }
+            #log-console::-webkit-scrollbar-thumb { background: var(--text-color); border-radius: 4px; }
+
+            .log-entry { margin-bottom: 8px; animation: fade 0.3s ease; line-height: 1.2; word-wrap: break-word; }
             @keyframes fade { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: translateX(0); } }
             
-            #diag-panel { font-size: 0.7em; text-align: right; margin-top: 10px; opacity: 0.8; }
+            #diag-panel { font-size: 0.7em; text-align: right; margin-top: 10px; opacity: 0.9; }
 
             #browser-view {
                 position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
@@ -77,27 +82,35 @@
                 position: fixed; top: 0; left: 0; width: 100%; height: 100%;
                 background: #fff; opacity: 0; pointer-events: none; z-index: 9999;
             }
+
+            #action-bar {
+                position: absolute; top: 55%; left: 50%; transform: translate(-50%, -50%);
+                width: 200px; height: 4px; background: rgba(255,255,255,0.1);
+                display: none; border: 1px solid var(--warn-color);
+            }
+            #action-progress { width: 0%; height: 100%; background: var(--warn-color); }
         </style>
     </head>
     <body>
         <div id="flash-effect"></div>
+        <div id="action-bar"><div id="action-progress"></div></div>
         <div class="scanline"></div>
         <div id="ui-layer">
-            <h2 style="margin: 0;">OMNILAB // HOMES_OS</h2>
-            <div id="status">SYSTEM: STANDBY</div>
+            <h2 style="margin: 0; font-size: 1.5em; letter-spacing: 2px;">OMNILAB // HOMES_OS</h2>
+            <div id="status" style="font-weight: bold;">SYSTEM: STANDBY</div>
             <div id="log-console"></div>
 
             <div id="control-panel">
                 <input type="text" id="search-box" placeholder="URL OR SEARCH..." />
                 <button class="cmd-btn" id="mic-btn" onclick="toggleMic()">VOICE: OFFLINE</button>
                 <button class="cmd-btn special" id="vision-btn" onclick="toggleVision()">START_SENSORS</button>
-                <button class="cmd-btn" onclick="runAnalyze(false)">SCAN ENVIRONMENT</button>
+                <button class="cmd-btn" id="scan-btn" onclick="runAnalyze(false)">SCAN ENVIRONMENT</button>
                 <button class="cmd-btn special" onclick="sendCommand('analyze_and_search')">HOMES SEARCH</button>
                 <button class="cmd-btn warn" onclick="sendCommand('close_browser')">TERMINATE</button>
                 
                 <div id="diag-panel">
                     <div id="fps">FPS: 00</div>
-                    <div id="gesture-display" style="color: var(--accent-color); font-weight: bold;">GESTURE: NONE</div>
+                    <div id="gesture-display" style="color: var(--accent-color); font-weight: bold; font-size: 1.1em;">GESTURE: NONE</div>
                     <div id="model">CORE: GEMINI-3.1-LITE</div>
                 </div>
             </div>
@@ -112,6 +125,9 @@
             let lastSuggestedQuery = "";
             let recognition;
             let isMicActive = false;
+            let isScanning = false;
+            let fistHoldTime = 0;
+            const FIST_THRESHOLD = 1500;
 
             // --- VOICE ---
             if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
@@ -153,21 +169,26 @@
                 if (cmd.includes("analyze") || cmd.includes("analyse") || cmd.includes("scan")) {
                     runAnalyze(false);
                 } else if ((cmd === "yes" || cmd.includes("search") || cmd.includes("confirm")) && lastSuggestedQuery) {
-                    document.getElementById("search-box").value = lastSuggestedQuery;
-                    addLog(`VOICE_CONFIRM: EXECUTING RESEARCH [${lastSuggestedQuery.toUpperCase()}]`, "var(--accent-color)");
-                    sendCommand("analyze_and_search");
+                    confirmResearch();
                 } else if (cmd.includes("search") || cmd.includes("find")) {
                     const q = cmd.replace("search", "").replace("find", "").replace("for", "").trim();
                     if (q) {
                         document.getElementById("search-box").value = q;
                         sendCommand("analyze_and_search");
                     }
-                } else if (cmd.includes("terminate") || cmd.includes("stop") || cmd.includes("reset")) {
+                } else if (cmd.includes("terminate") || cmd.includes("stop") || cmd.includes("reset") || cmd.includes("kill")) {
                     sendCommand("close_browser");
                 }
             }
 
-            // --- THREE.JS ---
+            function confirmResearch() {
+                if (!lastSuggestedQuery) return;
+                document.getElementById("search-box").value = lastSuggestedQuery;
+                addLog(`ACTION_CONFIRMED: RESEARCHING [${lastSuggestedQuery.toUpperCase()}]`, "var(--accent-color)");
+                sendCommand("analyze_and_search");
+                lastSuggestedQuery = ""; // Limpa após usar
+            }
+
             const scene = new THREE.Scene();
             const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
             const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true});
@@ -185,7 +206,6 @@
             scene.add(grid);
             camera.position.z = 15;
 
-            // --- VISION ---
             let handLandmarker;
             let videoElement = null;
             let visionWs;
@@ -259,23 +279,42 @@
                         const marks = results.landmarks[0];
                         const gestureData = { type: "gesture", x: marks[8].x, y: marks[8].y, gesture: "open" };
                         
-                        // 1. PINCH: Indicador e Polegar próximos
                         const dPinch = Math.hypot(marks[4].x - marks[8].x, marks[4].y - marks[8].y);
-                        
-                        // 2. FIST: Todas as pontas dos dedos abaixo das juntas (knuckles)
                         const isFist = marks[8].y > marks[6].y && marks[12].y > marks[10].y && 
                                        marks[16].y > marks[14].y && marks[20].y > marks[18].y;
-                        
-                        // 3. THUMBS UP: Polegar acima da mão, outros dedos fechados
                         const isThumbsUp = marks[4].y < marks[3].y && marks[4].y < marks[8].y - 0.1 && isFist;
 
-                        if (dPinch < 0.04) gestureData.gesture = "pinch";
+                        if (dPinch < 0.05) gestureData.gesture = "pinch";
                         else if (isThumbsUp) gestureData.gesture = "thumbs_up";
                         else if (isFist) gestureData.gesture = "fist";
 
-                        if (gestureData.gesture === "thumbs_up" && nowInMs - (window.lastScan || 0) > 3000) {
-                            runAnalyze(false); window.lastScan = nowInMs;
+                        if (gestureData.gesture === "thumbs_up" && !isScanning) {
+                            runAnalyze(false);
                         }
+
+                        // PINCH CONFIRM (Gesto Tático de Seleção)
+                        if (gestureData.gesture === "pinch" && lastSuggestedQuery && !isScanning) {
+                            addLog("GESTURE_CONFIRM: PINCH_DETECTED", "var(--accent-color)");
+                            confirmResearch();
+                        }
+
+                        // FIST PURGE
+                        if (gestureData.gesture === "fist") {
+                            if (fistHoldTime === 0) fistHoldTime = nowInMs;
+                            const elapsed = nowInMs - fistHoldTime;
+                            const prog = Math.min((elapsed / FIST_THRESHOLD) * 100, 100);
+                            document.getElementById('action-bar').style.display = 'block';
+                            document.getElementById('action-progress').style.width = prog + '%';
+                            if (elapsed > FIST_THRESHOLD) {
+                                addLog("GESTURE_CMD: EMERGENCY_PURGE", "var(--warn-color)");
+                                sendCommand("close_browser");
+                                fistHoldTime = nowInMs + 5000;
+                            }
+                        } else {
+                            fistHoldTime = 0;
+                            document.getElementById('action-bar').style.display = 'none';
+                        }
+
                         if (visionWs?.readyState === 1) visionWs.send(JSON.stringify(gestureData));
                         updateHUD(gestureData);
                     }
@@ -310,13 +349,17 @@
             function connect() {
                 const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
                 ws = new WebSocket(`${protocol}//${window.location.host}/ws/hud`);
-                ws.onopen = () => addLog("HUD_CONNECTED", "var(--accent-color)");
+                ws.onopen = () => addLog("HUD_CONNECTED: NEURAL_SYNC_OK", "var(--accent-color)");
                 ws.onmessage = (e) => {
                     const data = JSON.parse(e.data);
                     if (data.type === 'status_update') {
                         document.getElementById('status').innerText = data.message;
-                        addLog(data.message, "var(--warn-color)");
-                        if (data.message === "SYSTEM_CORE: MEMORY_PURGED") hideBrowser();
+                        addLog(`SYSTEM: ${data.message}`, "var(--accent-color)");
+                        if (data.message === "SYSTEM_CORE: MEMORY_PURGED") {
+                            hideBrowser();
+                            lastSuggestedQuery = "";
+                            addLog("CLEANUP_COMPLETE: SYSTEM_READY", "var(--accent-color)");
+                        }
                     } else if (data.type === 'browser_screenshot') {
                         showBrowser(data.data);
                     } else if (data.text) {
@@ -325,7 +368,7 @@
                         speak(cleanText);
                         if (data.suggested_query) {
                             lastSuggestedQuery = data.suggested_query;
-                            addLog(`SAY 'YES' TO SEARCH: ${lastSuggestedQuery.toUpperCase()}`, "var(--accent-color)");
+                            addLog(`SAY 'YES' OR PINCH TO RESEARCH: ${lastSuggestedQuery.toUpperCase()}`, "#00ff00");
                         }
                     }
                 };
@@ -333,7 +376,12 @@
             }
 
             async function runAnalyze(autoSearch = false) {
-                if (!isVisionActive || !videoElement) return;
+                if (isScanning || !isVisionActive || !videoElement) return;
+                isScanning = true;
+                const scanBtn = document.getElementById('scan-btn');
+                scanBtn.style.opacity = '0.5';
+                scanBtn.innerText = "COOLDOWN...";
+
                 const flash = document.getElementById('flash-effect');
                 flash.style.opacity = '1'; setTimeout(() => flash.style.opacity = '0', 100);
                 addLog("SCAN_INITIATED...", "var(--text-color)");
@@ -349,10 +397,17 @@
                         speak(data.text);
                         if (data.suggested_query) {
                             lastSuggestedQuery = data.suggested_query;
-                            addLog(`SUGGESTION: ${lastSuggestedQuery.toUpperCase()}`, "var(--accent-color)");
+                            addLog(`SAY 'YES' OR PINCH TO RESEARCH: ${lastSuggestedQuery.toUpperCase()}`, "#00ff00");
                         }
                     }
-                } catch (err) { addLog("SCAN_ERROR", "var(--warn-color)"); }
+                } catch (err) { addLog("SCAN_ERROR: LINK_LOST", "var(--warn-color)"); }
+                
+                setTimeout(() => {
+                    isScanning = false;
+                    scanBtn.style.opacity = '1';
+                    scanBtn.innerText = "SCAN ENVIRONMENT";
+                    addLog("SENSORS: READY", "var(--accent-color)");
+                }, 5000);
             }
 
             function sendCommand(cmd) {
@@ -361,7 +416,10 @@
                     if (q && ws?.readyState === 1) ws.send(JSON.stringify({ type: "command", command: "analyze_and_search", query: q }));
                     else runAnalyze(true);
                 } else if (ws?.readyState === 1) { 
-                    if (cmd === "close_browser") hideBrowser();
+                    if (cmd === "close_browser") {
+                        hideBrowser();
+                        addLog("KILL_SESSION: INITIATED", "var(--warn-color)");
+                    }
                     ws.send(JSON.stringify({ type: "command", command: cmd })); 
                 }
             }
@@ -371,8 +429,9 @@
                 const console = document.getElementById('log-console');
                 const entry = document.createElement('div');
                 entry.className = 'log-entry'; entry.innerText = `> ${text}`; entry.style.color = color;
-                console.appendChild(entry); console.scrollTop = console.scrollHeight;
-                if (console.childNodes.length > 50) console.firstChild.remove();
+                console.appendChild(entry);
+                console.scrollTop = console.scrollHeight;
+                if (console.childNodes.length > 100) console.firstChild.remove();
             }
             function hideBrowser() { document.getElementById('browser-view').style.display = 'none'; }
             function showBrowser(base64Data) {

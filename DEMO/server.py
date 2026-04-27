@@ -122,10 +122,12 @@ async def websocket_hud(ws: WebSocket):
                     except Exception as e:
                         await ws.send_json({"type": "status_update", "message": f"ERROR: {str(e)[:20]}"})
                 elif cmd == "close_browser":
-                    # KILL SESSION: Limpa memória e MCP
+                    # KILL SESSION: Limpa memória e manda confirmação
+                    print("🧹 [System] Purging cognitive memory and stopping MCP...")
                     cognitive_memory = []
                     await mcp_bridge.stop()
                     await ws.send_json({"type": "status_update", "message": "SYSTEM_CORE: MEMORY_PURGED"})
+                    await ws.send_json({"type": "status_update", "message": "REMOTE_LINK: DISCONNECTED"})
     except WebSocketDisconnect:
         hud_connections.discard(ws)
 
