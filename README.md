@@ -31,6 +31,17 @@ OmniLab operates on a distributed framework designed for speed, intelligence, an
 *   Chromium Engine (Playwright)
 *   Gemini API Key (configured in `.env`)
 
+## System Logic & Operational Flow
+
+OmniLab works by bridging the physical and digital worlds:
+1.  **Vision Capture**: The system captures real-time video frames and uses MediaPipe to track hand gestures.
+2.  **AI Heuristics**: Detected frames are sent to Gemini 3.1, which identifies objects, text, and context, suggesting tactical search queries.
+3.  **Autonomous Browsing**: Upon confirmation (Voice or Gesture), a headless Playwright instance is launched. It simulates human behavior (typing speed, mouse movements, scrolls) to fetch real-time intelligence from various AI engines and search engines.
+
+> [!] **IMPORTANT: NETWORK REPUTATION & CAPTCHAs**
+> When deployed on cloud servers (AWS, Oracle, etc.), services like Google and Cloudflare may trigger CAPTCHAs or blocks. This is because datacenter IPs are often flagged as non-human traffic.
+> *   **Local Execution**: The system is designed to work **100% flawlessly when run locally** on your own machine, as residential IPs have high reputation and bypass most bot detection protocols.
+
 ### Installation
 ```bash
 # 1. Clone the repository and prepare the environment
