@@ -37,13 +37,24 @@ OmniLab operates on a distributed framework designed for speed, intelligence, an
 python -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
 
-# 2. Install dependencies
+# 2. Configure Credentials (CRITICAL)
+# Create a .env file in the root directory and add your key:
+echo "GEMINI_API_KEY=your_api_key_here" > .env
+
+# 3. Install dependencies
 pip install -r requirements.txt
 python -m playwright install chromium
 
-# 3. Launch the system
+# 4. Launch the system
 python server.py
 ```
+
+## Troubleshooting: API KEY ERROR
+If the system displays "API KEY ERROR" during scans, ensure:
+1. The `.env` file exists in the root directory.
+2. The variable name is exactly `GEMINI_API_KEY`.
+3. Your Gemini API key is valid and has not expired.
+
 
 ## Network & Connectivity
 The system is optimized for remote deployment using **Cloudflare Zero-Trust Tunnels**, ensuring a secure and stable uplink even on mobile or restricted networks.
