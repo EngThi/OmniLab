@@ -31,7 +31,17 @@
             .engine-bar { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin-bottom: 5px; }
             .eng-btn { background: transparent; border: 1px solid rgba(255, 255, 255, 0.1); color: rgba(0, 242, 255, 0.5); font-size: 0.6em; cursor: pointer; padding: 10px 0; transition: 0.3s; font-family: 'Syncopate', sans-serif; font-weight: 700; letter-spacing: 1px; }
             .eng-btn.active { color: #fff; border-color: var(--text-color); box-shadow: 0 0 20px rgba(0, 242, 255, 0.3); background: rgba(0, 242, 255, 0.1); }
-            #search-box, #tts-input { background: rgba(0,0,0,0.6); border: 1px solid rgba(0, 242, 255, 0.2); color: #fff; padding: 15px; font-family: inherit; width: 100%; outline: none; font-size: 0.9em; text-align: center; transition: 0.3s; }
+            #search-box {
+                background: rgba(0,0,0,0.6); border: 2px solid var(--text-color);
+                color: #fff; padding: 15px; font-family: inherit; width: 100%; outline: none; font-size: 0.9em; text-align: center;
+                transition: 0.3s; box-shadow: 0 0 15px rgba(0, 242, 255, 0.2);
+            }
+            #eng-google.active { 
+                background: rgba(0, 242, 255, 0.2); 
+                border: 2px solid var(--text-color);
+                box-shadow: 0 0 25px rgba(0, 242, 255, 0.5);
+                color: #fff;
+            }
             #tts-input { background: rgba(0, 255, 170, 0.05); border-color: rgba(0, 255, 170, 0.2); font-size: 0.7em; padding: 10px; color: var(--accent-color); }
             #search-box:focus { border-bottom-color: var(--accent-color); background: rgba(0, 255, 170, 0.05); }
             .cmd-btn { background: rgba(255, 255, 255, 0.02); border: none; border-right: 2px solid var(--text-color); color: var(--text-color); padding: 14px 20px; cursor: pointer; font-size: 0.75em; transition: 0.4s; text-align: right; font-weight: 700; letter-spacing: 2px; }
