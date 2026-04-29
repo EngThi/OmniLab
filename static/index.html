@@ -85,6 +85,10 @@
                 <div id="status-label">NEURAL_LINK // UPLINK_ACTIVE</div>
             </div>
             <div id="log-console"></div>
+            <div id="diag">
+                <span id="privacy-shield" style="color:var(--accent-color);margin-right:20px;border:1px solid var(--accent-color);padding:2px 8px;font-size:0.8em;">🛡️ PRIVACY_GUARD: ACTIVE</span>
+                GESTURE: <span id="gesture-display">NONE</span> // SYSTEM V15.12
+            </div>
             <div id="control-panel">
                 <div class="engine-bar">
                     <button class="eng-btn active" id="eng-google" onclick="setEngine('google')">GOOGLE</button>
@@ -94,14 +98,18 @@
                 </div>
                 <input type="text" id="tts-input" placeholder="VOICE_SYNTH_PROMPT" onkeydown="if(event.key==='Enter') manualSpeak()" />
                 <input type="text" id="search-box" placeholder="TARGET_IDENTIFIER" />
-                <button class="cmd-btn" id="audio-btn" onclick="toggleTTS()">AUDIO_OUTPUT: ON</button>
+                
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:5px;">
+                    <button class="cmd-btn" id="audio-btn" onclick="toggleTTS()">AUDIO: ON</button>
+                    <button class="cmd-btn" id="gesture-toggle-btn" onclick="toggleGestures()" style="border-right-color:var(--accent-color);color:var(--accent-color)">GESTURES: AUTO</button>
+                </div>
+
                 <button class="cmd-btn" id="mic-btn" onclick="toggleMic()">VOICE_INPUT: OFF</button>
                 <button class="cmd-btn special" id="vision-btn" onclick="toggleVision()">ACTIVATE CAMERA</button>
                 <button class="cmd-btn" id="scan-btn" onclick="runAnalyze(false)">ENVIRONMENT SCAN</button>
                 <button class="cmd-btn special" onclick="sendCommand('analyze_and_search')">EXECUTE RESEARCH</button>
                 <button class="cmd-btn warn" onclick="sendCommand('close_browser')">SHUTDOWN SYSTEM</button>
             </div>
-            <div id="diag">GESTURE: <span id="gesture-display">NONE</span> // SYSTEM V15.11</div>
             <div id="browser-view">
                 <div id="browser-header">
                     <span>SAT_INTEL_STREAM // ENCRYPTED</span>
@@ -115,8 +123,15 @@
             const mouseCursor = document.getElementById('custom-mouse');
             document.addEventListener('mousemove', (e) => { mouseCursor.style.left = e.clientX + 'px'; mouseCursor.style.top = e.clientY + 'px'; });
 
-            let lastSuggestedQuery = "", currentEngine = "google", isMicActive = false, isScanning = false, lastXTriggerTime = 0, actionHoldTime = 0, isTTSActive = true, voices = [];
+            let lastSuggestedQuery = "", currentEngine = "google", isMicActive = false, isScanning = false, lastXTriggerTime = 0, actionHoldTime = 0, isTTSActive = true, voices = [], isGesturesAuto = true;
             const HOLD_THRESHOLD = 1500;
+
+            function toggleGestures() {
+                isGesturesAuto = !isGesturesAuto;
+                const btn = document.getElementById('gesture-toggle-btn');
+                btn.innerText = isGesturesAuto ? "GESTURES: AUTO" : "GESTURES: MANUAL";
+                addLog(isGesturesAuto ? "GESTURE ENGINE: FULL AUTO" : "GESTURE ENGINE: MANUAL OVERRIDE", "system");
+            }
 
             const scene = new THREE.Scene();
             const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
@@ -293,8 +308,10 @@
                         else if (isVictory) gestureData.gesture = "victory";
                         else if (isThumbsUp) gestureData.gesture = "thumbs_up";
 
-                        if (gestureData.gesture === "thumbs_up" && !isScanning) runAnalyze(false);
-                        else if (gestureData.gesture === "pinch" && lastSuggestedQuery && !isScanning) confirmResearch();
+                        if (isGesturesAuto) {
+                            if (gestureData.gesture === "thumbs_up" && !isScanning) runAnalyze(false);
+                            else if (gestureData.gesture === "pinch" && lastSuggestedQuery && !isScanning) confirmResearch();
+                        }
 
                         if (gestureData.gesture === "victory" && !isScanning) {
                             if (actionHoldTime === 0) actionHoldTime = nowInMs;

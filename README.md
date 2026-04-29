@@ -1,76 +1,66 @@
 # OmniLab: Tactical AI Command HUD
 
-OmniLab is an advanced command interface that integrates real-time computer vision, Large Language Models (LLMs), and autonomous browser agents into a unified 3D Heads-Up Display (HUD). Built for high-performance environment analysis and decentralized research, it leverages Gemini 3.1 to provide tactical heuristics.
+OmniLab is a high-performance 3D command interface that bridges real-time computer vision, Large Language Models (LLMs), and autonomous browser agents into a unified Heads-Up Display (HUD). 
 
-## Core Architecture
-
-OmniLab operates on a distributed framework designed for speed, intelligence, and stealth:
-
-*   **Intelligence Engine:** Powered by Gemini 3.1 Flash-Lite for real-time visual analysis and tactical suggestions.
-*   **3D Visualization:** A dynamic Three.js HUD with parallax movement, starfields, and reative UI elements.
-*   **Autonomous Research:** Playwright-based browser agents capable of searching via Google, Perplexity, and ChatGPT, with automatic DuckDuckGo fallback and advanced stealth/camouflage protocols.
-*   **Spatial Interaction:** Real-time gesture recognition via MediaPipe for hands-free control.
-
-## Interface Protocols
-
-### Kinetic Gestures (Vision Engine)
-*   **Thumbs Up [👍]:** Triggers an environmental scan and AI frame analysis.
-*   **Victory [✌️]:** Hold for 1.5s to execute a **System Purge**, clearing memory and active sessions.
-*   **Pinch [🤏]:** Hold to confirm and execute suggested research queries.
-*   **Crossed Fingers [X]:** Close active satellite feed windows (Dual-hand gesture).
-
-### Voice Commands (Neural Link)
-*   **"Analyze" / "Scan":** Executes immediate visual capture for AI processing.
-*   **"Yes" / "Search":** Confirms research protocols suggested by the AI.
-*   **"Terminate" / "Close":** Emergency shutdown for active browser feeds.
-
-## Deployment Specifications
-
-### Requirements
-*   Python 3.10+
-*   Chromium Engine (Playwright)
-*   Gemini API Key (configured in `.env`)
-
-## System Logic & Operational Flow
-
-OmniLab works by bridging the physical and digital worlds:
-1.  **Vision Capture**: The system captures real-time video frames and uses MediaPipe to track hand gestures.
-2.  **AI Heuristics**: Detected frames are sent to Gemini 3.1, which identifies objects, text, and context, suggesting tactical search queries.
-3.  **Autonomous Browsing**: Upon confirmation (Voice or Gesture), a headless Playwright instance is launched. It simulates human behavior (typing speed, mouse movements, scrolls) to fetch real-time intelligence from various AI engines and search engines.
-
-> [!] **IMPORTANT: NETWORK REPUTATION & CAPTCHAs**
-> When deployed on cloud servers (AWS, Oracle, etc.), services like Google and Cloudflare may trigger CAPTCHAs or blocks. This is because datacenter IPs are often flagged as non-human traffic.
-> *   **Local Execution**: The system is designed to work **100% flawlessly when run locally** on your own machine, as residential IPs have high reputation and bypass most bot detection protocols.
-
-### Installation
-```bash
-# 1. Clone the repository and prepare the environment
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-
-# 2. Configure Credentials (CRITICAL)
-# Create a .env file in the root directory and add your key:
-echo "GEMINI_API_KEY=your_api_key_here" > .env
-
-# 3. Install dependencies
-pip install -r requirements.txt
-python -m playwright install chromium
-
-# 4. Launch the system
-python server.py
-```
-
-## Troubleshooting: API KEY ERROR
-If the system displays "API KEY ERROR" during scans, ensure:
-1. The `.env` file exists in the root directory.
-2. The variable name is exactly `GEMINI_API_KEY`.
-3. Your Gemini API key is valid and has not expired.
-
-
-## Network & Connectivity
-The system is optimized for remote deployment using **Cloudflare Zero-Trust Tunnels**, ensuring a secure and stable uplink even on mobile or restricted networks.
+Designed for **FlavorTown Hackers**, it provides a cinematic, hands-free way to research and analyze your environment.
 
 ---
 
-**Status:** Operational
+## 🛡️ Privacy & Security Protocol (Zero-Knowledge Design)
+We take your data safety seriously. OmniLab was built with the following security heuristics:
+*   **Volatile Memory:** No images, video frames, or search histories are stored on the server. All processing happens in real-time RAM and is purged upon session termination.
+*   **Encrypted Uplink:** The system uses SSL/TLS (via Caddy & DuckDNS) for all remote communications.
+*   **Transparency:** Camera access is used exclusively for local gesture tracking (MediaPipe) and context analysis (Gemini API). 
+*   **Privacy Shield:** The "System Purge" command (`Victory [✌️]` gesture or button) instantly clears all active browser sessions and cognitive memory.
+
+## 🎮 Interface Protocols
+
+### Kinetic Gestures (Vision Engine)
+*   **Thumbs Up [👍]:** Triggers an environmental scan.
+*   **Pinch [🤏]:** Confirms and executes suggested research.
+*   **Victory [✌️]:** Hold for 1.5s to **System Purge** (Clear Memory).
+*   **Crossed Fingers [X]:** Close active browser windows.
+
+> [TIP] Use the **GESTURES: MANUAL** toggle in the UI if you want full control without automatic triggers.
+
+### Voice Commands (Neural Link)
+*   **"Analyze" / "Scan":** Execute immediate capture.
+*   **"Yes" / "Search":** Confirm AI suggestions.
+*   **"Terminate":** Emergency shutdown.
+
+---
+
+## ⚙️ Core Architecture
+*   **Intelligence:** Gemini 3.1 (Flash/Pro) for tactical heuristics.
+*   **Visuals:** Three.js 3D environment with parallax starfields.
+*   **Automation:** Playwright with Stealth Mode for autonomous intelligence gathering.
+*   **Tracking:** MediaPipe for low-latency spatial interaction.
+
+## 🚀 Deployment
+
+### Requirements
+*   Python 3.10+
+*   Gemini API Key
+*   Chromium Engine
+
+### Quick Start
+```bash
+# 1. Setup Environment
+python -m venv venv
+source venv/bin/activate
+
+# 2. Install Dependencies
+pip install -r requirements.txt
+python -m playwright install chromium
+
+# 3. Configure .env
+echo "GEMINI_API_KEY=your_key" > .env
+
+# 4. Launch
+python server.py
+```
+
+---
+
+**Status:** Operational // **Security:** Verified
 **Developer:** EngThi / OmniLab Core
