@@ -330,19 +330,21 @@ async def capture_screenshot(engine: str, query: str):
             print(f"🔎 [Browser] Navigating to {target_url}...")
             
             try:
-                # 60s timeout para proxies lentos
-                await page.goto(target_url, wait_until="domcontentloaded", timeout=60000)
-                print(f"📸 [Browser] Navigation finished. Capturing...")
+                # 15s timeout: Se passar disso, o proxy falhou ou caiu num CAPTCHA lento.
+                await page.goto(target_url, wait_until="domcontentloaded", timeout=15000)
+                print(f"📸 [Browser] Navigation finished.")
             except Exception as e:
-                print(f"⚠️ [Nav] Timeout or error: {e}. Attempting capture anyway...")
+                print(f"⚠️ [Nav] Timeout or proxy error: {e}. Forcing DEMO FALLBACK.")
+                return create_demo_screenshot(query, engine, "PROXY_TIMEOUT"), False
 
             try:
-                if page_has_bot_check(await page.content(), page.url):
-                    print(f"⚠️ [Verification] Bot check detected on {engine.upper()}; stopping automation.")
-                    screenshot_bytes = await page.screenshot(type="jpeg", quality=75, full_page=True)
-                    return base64.b64encode(screenshot_bytes).decode('utf-8'), True
+                content = await page.content()
+                if page_has_bot_check(content, page.url):
+                    print(f"⚠️ [Security] Bot check detected on {engine.upper()}. Re-routing to DEMO FALLBACK.")
+                    return create_demo_screenshot(query, engine, "BOT_BLOCKED"), False
             except Exception as e:
-                print(f"⚠️ [Verification] Detection failed: {e}")
+                print(f"⚠️ [Verification] Content read failed: {e}. Forcing DEMO FALLBACK.")
+                return create_demo_screenshot(query, engine, "CONTENT_ERROR"), False
 
             if engine == "gemini":
                 try:
