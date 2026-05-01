@@ -249,6 +249,7 @@ async def type_human_like(page, selector, text, click_after=None):
         await page.keyboard.press("Enter")
 
 async def capture_screenshot(engine: str, query: str):
+    from playwright_stealth import Stealth
     import urllib.parse
     quoted = urllib.parse.quote(query)
     user_data_dir = os.path.expanduser("~/.playwright_data")
