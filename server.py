@@ -272,12 +272,18 @@ async def capture_screenshot(engine: str, query: str):
             "proxy": proxy_config
         }
 
+        chromium_args = [
+            "--no-sandbox",
+            "--disable-blink-features=AutomationControlled",
+            "--ignore-certificate-errors",
+        ]
+
         if engine in ["google", "perplexity", "gemini", "chatgpt"]:
             browser_context = await p.chromium.launch_persistent_context(
-                user_data_dir, headless=True, args=["--no-sandbox", "--disable-blink-features=AutomationControlled"], **stealth_params
+                user_data_dir, headless=True, args=chromium_args, **stealth_params
             )
         else:
-            browser = await p.chromium.launch(headless=True, args=["--no-sandbox"])
+            browser = await p.chromium.launch(headless=True, args=chromium_args)
             browser_context = await browser.new_context(**stealth_params)
         
         try:
