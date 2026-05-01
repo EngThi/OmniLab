@@ -299,7 +299,7 @@ async def capture_screenshot(engine: str, query: str):
             if engine == "gemini": target_url = "https://gemini.google.com/app"
             elif engine == "chatgpt": target_url = "https://chatgpt.com/"
             elif engine == "perplexity": target_url = f"https://www.perplexity.ai/search?q={quoted}"
-            else: target_url = f"https://duckduckgo.com/?q={quoted}"
+            else: target_url = f"https://duckduckgo.com/html/?q={quoted}"
 
             print(f"🔎 [Browser] Navigating to {target_url}...")
             try:
