@@ -249,16 +249,15 @@ async def type_human_like(page, selector, text, click_after=None):
         await page.keyboard.press("Enter")
 
 async def capture_screenshot(engine: str, query: str):
-    from playwright_stealth import Stealth
     import urllib.parse
     quoted = urllib.parse.quote(query)
     user_data_dir = os.path.expanduser("~/.playwright_data")
     
-    # Configuração de Proxy Residencial (Bright Data)
+    # Configuração de Proxy (Webshare)
     proxy_config = {
-        "server": "http://brd.superproxy.io:33335",
-        "username": "brd-customer-hl_aa3d0ac7-zone-residential_proxy1",
-        "password": "igivz7kxv54s"
+        "server": "http://31.59.20.176:6754",
+        "username": "pmlsrcds",
+        "password": "u6rstatz1o8x"
     }
 
     async with async_playwright() as p:
