@@ -37,7 +37,7 @@ if not api_key:
     print("⚠️ [System] GEMINI_API_KEY NOT FOUND!")
     DEMO_MODE = True
 else:
-    print(f"✅ [System] V15.13 Active (Orange Dot). API Key detected: {api_key[:4]}...{api_key[-4:]}")
+    print(f"✅ [System] V15.14 Active (Cyan Dot). API Key detected: {api_key[:4]}...{api_key[-4:]}")
 
 client = genai.Client(api_key=api_key) if api_key else None
 
@@ -253,29 +253,11 @@ async def capture_screenshot(engine: str, query: str):
     import urllib.parse
     quoted = urllib.parse.quote(query)
     user_data_dir = os.path.expanduser("~/.playwright_data")
-    
-    # Lista de Proxies Webshare (Rotação)
-    PROXY_LIST = [
-        "http://pmlsrcds:u6rstatz1o8x@31.59.20.176:6754",
-        "http://pmlsrcds:u6rstatz1o8x@198.23.239.134:6540",
-        "http://pmlsrcds:u6rstatz1o8x@45.38.107.97:6014",
-        "http://pmlsrcds:u6rstatz1o8x@107.172.163.27:6543",
-        "http://pmlsrcds:u6rstatz1o8x@198.105.121.200:6462",
-        "http://pmlsrcds:u6rstatz1o8x@216.10.27.159:6837",
-        "http://pmlsrcds:u6rstatz1o8x@142.111.67.146:5611",
-        "http://pmlsrcds:u6rstatz1o8x@191.96.254.138:6185",
-        "http://pmlsrcds:u6rstatz1o8x@31.58.9.4:6077",
-        "http://pmlsrcds:u6rstatz1o8x@104.239.107.47:5699"
-    ]
-    selected_proxy_url = random.choice(PROXY_LIST)
-    p_parts = selected_proxy_url.replace("http://", "").split("@")
-    p_auth, p_serv = p_parts[0].split(":"), p_parts[1]
-    
-    proxy_config = {
-        "server": f"http://{p_serv}",
-        "username": p_auth[0],
-        "password": p_auth[1]
-    }
+
+    # Google Search está bloqueado neste IP. Redirecionar para DuckDuckGo.
+    if engine == "google":
+        print(f"🔀 [Router] Google blocked on this IP. Redirecting to DuckDuckGo.")
+        engine = "duckduckgo"
 
     async with async_playwright() as p:
         stealth_params = {
@@ -285,65 +267,55 @@ async def capture_screenshot(engine: str, query: str):
             "geolocation": {'latitude': -23.5505, 'longitude': -46.6333},
             "permissions": ['geolocation'],
             "viewport": {'width': 1280, 'height': 800},
-            "proxy": proxy_config
         }
 
         chromium_args = [
             "--no-sandbox",
             "--disable-blink-features=AutomationControlled",
-            "--ignore-certificate-errors",
         ]
 
-        print(f"🚀 [Browser] Starting {engine.upper()} instance...")
+        print(f"🚀 [Browser] Starting {engine.upper()} search for: {query}")
         try:
-            if engine in ["google", "perplexity", "gemini", "chatgpt"]:
-                print(f"📦 [Browser] Launching Persistent Context for {engine}...")
+            if engine in ["gemini", "chatgpt", "perplexity"]:
                 browser_context = await p.chromium.launch_persistent_context(
                     user_data_dir, headless=True, args=chromium_args, **stealth_params
                 )
             else:
-                print(f"📦 [Browser] Launching Standard Context for {engine}...")
                 browser = await p.chromium.launch(headless=True, args=chromium_args)
                 browser_context = await browser.new_context(**stealth_params)
         except Exception as e:
             print(f"❌ [Browser] Launch FAILED: {e}")
-            raise
-        
-        print(f"✅ [Browser] Context ready. Injecting session...")
+            return create_demo_screenshot(query, engine, "LAUNCH_ERROR"), False
+
         try:
             page = browser_context.pages[0] if browser_context.pages else await browser_context.new_page()
-            await apply_user_cookies(browser_context)
+            if engine in ["gemini", "chatgpt", "perplexity"]:
+                await apply_user_cookies(browser_context)
             await Stealth().apply_stealth_async(page)
-            
-            # Aquecimento rápido
-            print(f"🔥 [Browser] Warming up mouse/stealth...")
-            await page.mouse.move(400, 400)
-            await asyncio.sleep(random.uniform(1.0, 2.0))
 
-            target_url = ""
-            if engine == "google": target_url = f"https://www.google.com/search?q={quoted}&hl=pt-BR"
-            elif engine == "perplexity": target_url = f"https://www.perplexity.ai/search?q={quoted}"
-            elif engine == "gemini": target_url = "https://gemini.google.com/app"
+            await page.mouse.move(400, 400)
+            await asyncio.sleep(random.uniform(0.5, 1.5))
+
+            if engine == "gemini": target_url = "https://gemini.google.com/app"
             elif engine == "chatgpt": target_url = "https://chatgpt.com/"
-            else: target_url = f"https://duckduckgo.com/html/?q={quoted}"
-            
+            elif engine == "perplexity": target_url = f"https://www.perplexity.ai/search?q={quoted}"
+            else: target_url = f"https://duckduckgo.com/?q={quoted}"
+
             print(f"🔎 [Browser] Navigating to {target_url}...")
-            
             try:
-                # 15s timeout: Se passar disso, o proxy falhou ou caiu num CAPTCHA lento.
-                await page.goto(target_url, wait_until="domcontentloaded", timeout=15000)
-                print(f"📸 [Browser] Navigation finished.")
+                await page.goto(target_url, wait_until="domcontentloaded", timeout=20000)
+                print(f"✅ [Browser] Page loaded.")
             except Exception as e:
-                print(f"⚠️ [Nav] Timeout or proxy error: {e}. Forcing DEMO FALLBACK.")
-                return create_demo_screenshot(query, engine, "PROXY_TIMEOUT"), False
+                print(f"⚠️ [Nav] Timeout: {e}. Returning fallback.")
+                return create_demo_screenshot(query, engine, "NAV_TIMEOUT"), False
 
             try:
                 content = await page.content()
                 if page_has_bot_check(content, page.url):
-                    print(f"⚠️ [Security] Bot check detected on {engine.upper()}. Re-routing to DEMO FALLBACK.")
+                    print(f"⚠️ [Security] Bot check on {engine.upper()}.")
                     return create_demo_screenshot(query, engine, "BOT_BLOCKED"), False
             except Exception as e:
-                print(f"⚠️ [Verification] Content read failed: {e}. Forcing DEMO FALLBACK.")
+                print(f"⚠️ [Content] Read failed: {e}")
                 return create_demo_screenshot(query, engine, "CONTENT_ERROR"), False
 
             if engine == "gemini":
@@ -351,26 +323,26 @@ async def capture_screenshot(engine: str, query: str):
                     gemini_send_btn = "button[aria-label*='Send'], .send-button-container button, div.send-button-container button"
                     input_selector = "div[contenteditable='true']"
                     await type_human_like(page, input_selector, query, click_after=gemini_send_btn)
-                    await asyncio.sleep(25) 
+                    await asyncio.sleep(25)
                 except Exception as e: print(f"⚠️ Gemini Error: {e}")
-            
+
             elif engine == "chatgpt":
                 try:
                     input_selector = "#prompt-textarea"
                     chatgpt_send_btn = "[data-testid='send-button']"
                     await type_human_like(page, input_selector, query, click_after=chatgpt_send_btn)
-                    await asyncio.sleep(20) 
+                    await asyncio.sleep(20)
                 except Exception as e: print(f"⚠️ ChatGPT Error: {e}")
-            
+
             elif engine == "perplexity":
                 await page.mouse.wheel(0, 500)
                 await asyncio.sleep(12)
-            
+
             else: await asyncio.sleep(5)
-            
+
             content = await page.content()
             is_blocked = page_has_bot_check(content, page.url)
-            
+
             screenshot_bytes = await page.screenshot(type="jpeg", quality=75, full_page=True)
             return base64.b64encode(screenshot_bytes).decode('utf-8'), is_blocked
         finally:
