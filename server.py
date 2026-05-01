@@ -37,7 +37,7 @@ if not api_key:
     print("⚠️ [System] GEMINI_API_KEY NOT FOUND!")
     DEMO_MODE = True
 else:
-    print(f"✅ [System] V15.10 Active (Yellow Dot). API Key detected: {api_key[:4]}...{api_key[-4:]}")
+    print(f"✅ [System] V15.12 Active (Purple Dot). API Key detected: {api_key[:4]}...{api_key[-4:]}")
 
 client = genai.Client(api_key=api_key) if api_key else None
 
@@ -278,20 +278,29 @@ async def capture_screenshot(engine: str, query: str):
             "--ignore-certificate-errors",
         ]
 
-        if engine in ["google", "perplexity", "gemini", "chatgpt"]:
-            browser_context = await p.chromium.launch_persistent_context(
-                user_data_dir, headless=True, args=chromium_args, **stealth_params
-            )
-        else:
-            browser = await p.chromium.launch(headless=True, args=chromium_args)
-            browser_context = await browser.new_context(**stealth_params)
+        print(f"🚀 [Browser] Starting {engine.upper()} instance...")
+        try:
+            if engine in ["google", "perplexity", "gemini", "chatgpt"]:
+                print(f"📦 [Browser] Launching Persistent Context for {engine}...")
+                browser_context = await p.chromium.launch_persistent_context(
+                    user_data_dir, headless=True, args=chromium_args, **stealth_params
+                )
+            else:
+                print(f"📦 [Browser] Launching Standard Context for {engine}...")
+                browser = await p.chromium.launch(headless=True, args=chromium_args)
+                browser_context = await browser.new_context(**stealth_params)
+        except Exception as e:
+            print(f"❌ [Browser] Launch FAILED: {e}")
+            raise
         
+        print(f"✅ [Browser] Context ready. Injecting session...")
         try:
             page = browser_context.pages[0] if browser_context.pages else await browser_context.new_page()
             await apply_user_cookies(browser_context)
             await Stealth().apply_stealth_async(page)
             
             # Aquecimento rápido
+            print(f"🔥 [Browser] Warming up mouse/stealth...")
             await page.mouse.move(400, 400)
             await asyncio.sleep(random.uniform(1.0, 2.0))
 
@@ -302,13 +311,14 @@ async def capture_screenshot(engine: str, query: str):
             elif engine == "chatgpt": target_url = "https://chatgpt.com/"
             else: target_url = f"https://duckduckgo.com/html/?q={quoted}"
             
-            print(f"🔎 [Browser] Targeting {engine.upper()} (V15.10 Resilience)...")
+            print(f"🔎 [Browser] Navigating to {target_url}...")
             
             try:
-                # Mudança estratégica: domcontentloaded é muito mais rápido que load
-                await page.goto(target_url, wait_until="domcontentloaded", timeout=50000)
+                # 60s timeout para proxies lentos
+                await page.goto(target_url, wait_until="domcontentloaded", timeout=60000)
+                print(f"📸 [Browser] Navigation finished. Capturing...")
             except Exception as e:
-                print(f"⚠️ [Nav] Timeout or error during load: {e}. Proceeding anyway...")
+                print(f"⚠️ [Nav] Timeout or error: {e}. Attempting capture anyway...")
 
             try:
                 if page_has_bot_check(await page.content(), page.url):
