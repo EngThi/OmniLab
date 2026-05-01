@@ -37,7 +37,7 @@ if not api_key:
     print("⚠️ [System] GEMINI_API_KEY NOT FOUND!")
     DEMO_MODE = True
 else:
-    print(f"✅ [System] V15.12 Active (Purple Dot). API Key detected: {api_key[:4]}...{api_key[-4:]}")
+    print(f"✅ [System] V15.13 Active (Orange Dot). API Key detected: {api_key[:4]}...{api_key[-4:]}")
 
 client = genai.Client(api_key=api_key) if api_key else None
 
@@ -254,11 +254,27 @@ async def capture_screenshot(engine: str, query: str):
     quoted = urllib.parse.quote(query)
     user_data_dir = os.path.expanduser("~/.playwright_data")
     
-    # Configuração de Proxy (Webshare)
+    # Lista de Proxies Webshare (Rotação)
+    PROXY_LIST = [
+        "http://pmlsrcds:u6rstatz1o8x@31.59.20.176:6754",
+        "http://pmlsrcds:u6rstatz1o8x@198.23.239.134:6540",
+        "http://pmlsrcds:u6rstatz1o8x@45.38.107.97:6014",
+        "http://pmlsrcds:u6rstatz1o8x@107.172.163.27:6543",
+        "http://pmlsrcds:u6rstatz1o8x@198.105.121.200:6462",
+        "http://pmlsrcds:u6rstatz1o8x@216.10.27.159:6837",
+        "http://pmlsrcds:u6rstatz1o8x@142.111.67.146:5611",
+        "http://pmlsrcds:u6rstatz1o8x@191.96.254.138:6185",
+        "http://pmlsrcds:u6rstatz1o8x@31.58.9.4:6077",
+        "http://pmlsrcds:u6rstatz1o8x@104.239.107.47:5699"
+    ]
+    selected_proxy_url = random.choice(PROXY_LIST)
+    p_parts = selected_proxy_url.replace("http://", "").split("@")
+    p_auth, p_serv = p_parts[0].split(":"), p_parts[1]
+    
     proxy_config = {
-        "server": "http://31.59.20.176:6754",
-        "username": "pmlsrcds",
-        "password": "u6rstatz1o8x"
+        "server": f"http://{p_serv}",
+        "username": p_auth[0],
+        "password": p_auth[1]
     }
 
     async with async_playwright() as p:
