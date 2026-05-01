@@ -37,7 +37,7 @@ if not api_key:
     print("⚠️ [System] GEMINI_API_KEY NOT FOUND!")
     DEMO_MODE = True
 else:
-    print(f"✅ [System] V15.14 Active (Cyan Dot). API Key detected: {api_key[:4]}...{api_key[-4:]}")
+    print(f"✅ [System] V15.15 Active (Purple Dot). API Key detected: {api_key[:4]}...{api_key[-4:]}")
 
 client = genai.Client(api_key=api_key) if api_key else None
 
@@ -254,10 +254,10 @@ async def capture_screenshot(engine: str, query: str):
     quoted = urllib.parse.quote(query)
     user_data_dir = os.path.expanduser("~/.playwright_data")
 
-    # Google Search está bloqueado neste IP. Redirecionar para DuckDuckGo.
-    if engine == "google":
-        print(f"🔀 [Router] Google blocked on this IP. Redirecting to DuckDuckGo.")
-        engine = "duckduckgo"
+    # Google e DuckDuckGo estão bloqueados neste IP da AWS. Redirecionar para Yahoo Search.
+    if engine == "google" or engine == "duckduckgo":
+        print(f"🔀 [Router] Engine blocked on AWS IP. Redirecting to Yahoo Search.")
+        engine = "yahoo"
 
     async with async_playwright() as p:
         stealth_params = {
@@ -299,7 +299,7 @@ async def capture_screenshot(engine: str, query: str):
             if engine == "gemini": target_url = "https://gemini.google.com/app"
             elif engine == "chatgpt": target_url = "https://chatgpt.com/"
             elif engine == "perplexity": target_url = f"https://www.perplexity.ai/search?q={quoted}"
-            else: target_url = f"https://duckduckgo.com/html/?q={quoted}"
+            else: target_url = f"https://search.yahoo.com/search?p={quoted}"
 
             print(f"🔎 [Browser] Navigating to {target_url}...")
             try:
