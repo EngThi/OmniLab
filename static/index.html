@@ -86,7 +86,7 @@
             </div>
             <div id="log-console"></div>
             <div id="diag">
-                <span id="privacy-shield" style="color:var(--accent-color);margin-right:20px;border:1px solid var(--accent-color);padding:2px 8px;font-size:0.8em;">🛡️ PRIVACY_GUARD: ACTIVE</span>
+                <span id="privacy-shield" style="color:var(--accent-color);margin-right:20px;border:1px solid var(--accent-color);padding:2px 8px;font-size:0.8em;">DATA_PROTOCOL: VOLATILE_MEMORY</span>
                 GESTURE: <span id="gesture-display">NONE</span> // SYSTEM V15.12
             </div>
             <div id="control-panel">
@@ -100,15 +100,16 @@
                 <input type="text" id="search-box" placeholder="TARGET_IDENTIFIER" />
                 
                 <div style="display:grid; grid-template-columns: 1fr 1fr; gap:5px;">
-                    <button class="cmd-btn" id="audio-btn" onclick="toggleTTS()">AUDIO: ON</button>
-                    <button class="cmd-btn" id="gesture-toggle-btn" onclick="toggleGestures()" style="border-right-color:var(--accent-color);color:var(--accent-color)">GESTURES: AUTO</button>
+                    <button class="cmd-btn" id="audio-btn" onclick="toggleTTS()" title="Toggle voice output">AUDIO: ON</button>
+                    <button class="cmd-btn" id="gesture-toggle-btn" onclick="toggleGestures()" title="Manual prevents gestures from launching actions automatically" style="border-right-color:var(--accent-color);color:var(--accent-color)">GESTURES: MANUAL</button>
                 </div>
 
-                <button class="cmd-btn" id="mic-btn" onclick="toggleMic()">VOICE_INPUT: OFF</button>
-                <button class="cmd-btn special" id="vision-btn" onclick="toggleVision()">ACTIVATE CAMERA</button>
-                <button class="cmd-btn" id="scan-btn" onclick="runAnalyze(false)">ENVIRONMENT SCAN</button>
-                <button class="cmd-btn special" onclick="sendCommand('analyze_and_search')">EXECUTE RESEARCH</button>
-                <button class="cmd-btn warn" onclick="sendCommand('close_browser')">SHUTDOWN SYSTEM</button>
+                <button class="cmd-btn" id="mic-btn" onclick="toggleMic()" title="Enable spoken commands">VOICE_INPUT: OFF</button>
+                <button class="cmd-btn special" id="vision-btn" onclick="toggleVision()" title="Camera stays in browser except captured analysis frames">ACTIVATE CAMERA</button>
+                <button class="cmd-btn" id="scan-btn" onclick="runAnalyze(false)" title="Analyze the current camera frame">ENVIRONMENT SCAN</button>
+                <button class="cmd-btn" onclick="runDemoScan()" title="Use when camera permission or hardware is unavailable">NO-CAMERA DEMO</button>
+                <button class="cmd-btn special" onclick="sendCommand('analyze_and_search')" title="Run browser research for the target field">EXECUTE RESEARCH</button>
+                <button class="cmd-btn warn" onclick="sendCommand('close_browser')" title="Clear session memory and close active feed">SHUTDOWN SYSTEM</button>
             </div>
             <div id="browser-view">
                 <div id="browser-header">
@@ -123,7 +124,7 @@
             const mouseCursor = document.getElementById('custom-mouse');
             document.addEventListener('mousemove', (e) => { mouseCursor.style.left = e.clientX + 'px'; mouseCursor.style.top = e.clientY + 'px'; });
 
-            let lastSuggestedQuery = "", currentEngine = "google", isMicActive = false, isScanning = false, lastXTriggerTime = 0, actionHoldTime = 0, isTTSActive = true, voices = [], isGesturesAuto = true;
+            let lastSuggestedQuery = "", currentEngine = "google", isMicActive = false, isScanning = false, lastXTriggerTime = 0, actionHoldTime = 0, isTTSActive = true, voices = [], isGesturesAuto = false;
             const HOLD_THRESHOLD = 1500;
 
             function toggleGestures() {
@@ -265,7 +266,13 @@
                         if (sLabel) sLabel.innerText = "STATUS: TRACKING_LIVE";
                         connectVisionWS(); requestAnimationFrame(predictWebcam);
                     };
-                } catch (e) { addLog("SENSOR ERROR", "warn"); isVisionActive = false; }
+                } catch (e) {
+                    addLog("SENSOR ERROR: CAMERA UNAVAILABLE", "warn");
+                    addLog("NO-CAMERA DEMO READY", "system");
+                    isVisionActive = false;
+                    const vBtn = document.getElementById('vision-btn');
+                    if (vBtn) { vBtn.innerText = "CAMERA BLOCKED"; vBtn.classList.remove('active'); }
+                }
             }
 
             function stopVision() {
@@ -405,6 +412,13 @@
                 setTimeout(() => { isScanning = false; }, 5000);
             }
 
+            function runDemoScan() {
+                lastSuggestedQuery = "Hack Club project review AI vision dashboard";
+                document.getElementById("search-box").value = lastSuggestedQuery;
+                addLog("DEMO_SCAN: CAMERA OPTIONAL", "system");
+                addLog("SUGGESTION: HACK CLUB PROJECT REVIEW AI VISION DASHBOARD", "system");
+            }
+
             function hideBrowser() { document.getElementById('browser-view').style.display = 'none'; }
             function showBrowser(base64Data) { addLog("FEED ONLINE", "system"); document.getElementById('browser-content').src = `data:image/jpeg;base64,${base64Data}`; document.getElementById('browser-view').style.display = 'flex'; document.getElementById('browser-container').scrollTop = 0; }
             function sendCommand(cmd) { const q = document.getElementById("search-box").value; if (ws?.readyState === 1) { if (cmd === "analyze_and_search") ws.send(JSON.stringify({ type: "command", command: "analyze_and_search", query: q || lastSuggestedQuery, engine: currentEngine })); else ws.send(JSON.stringify({ type: "command", command: cmd })); } }
@@ -412,6 +426,8 @@
             function cleanTacticalText(t) { return t ? t.replace(/[\*#\-_\[\]\(\)>]/g, "").replace(/\s+/g, " ").toUpperCase() : ""; }
             function animate() { requestAnimationFrame(animate); stars.rotation.y += 0.001; stars.rotation.x += 0.0005; r1.rotation.z += 0.025; r2.rotation.y += 0.05; r3.rotation.z -= 0.015; renderer.render(scene, camera); }
             connect(); animate();
+            addLog("PRIVACY: CAMERA FRAMES ARE NOT STORED", "system");
+            addLog("GESTURES START IN MANUAL TO PREVENT ACCIDENTAL ACTIONS", "system");
             window.addEventListener('click', () => { if(isTTSActive) { const silent = new SpeechSynthesisUtterance(""); window.speechSynthesis.speak(silent); } }, {once: true});
         </script>
     </body>

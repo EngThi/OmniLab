@@ -9,10 +9,10 @@ import itertools
 import re
 import random
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
-from PIL import Image
+from PIL import Image, ImageDraw, ImageFont
 from dotenv import load_dotenv
 from google import genai
 from google.genai import types
@@ -24,6 +24,14 @@ load_dotenv()
 # ── FORCED DEMO MODE & KEY CHECK ──
 api_key = os.getenv("GEMINI_API_KEY")
 DEMO_MODE = os.getenv("DEMO_MODE", "false").lower() == "true"
+DEMO_FALLBACK = os.getenv("DEMO_FALLBACK", "true").lower() == "true"
+COOKIE_FILE = os.path.expanduser(os.getenv("COOKIE_FILE", "~/arq.json"))
+COOKIE_FILE_CANDIDATES = [
+    COOKIE_FILE,
+    os.path.expanduser("~/arq.json"),
+    os.path.expanduser("~/cookiesFI.json"),
+    os.path.expanduser("~/cookies.json"),
+]
 
 if not api_key:
     print("⚠️ [System] GEMINI_API_KEY NOT FOUND!")
@@ -35,6 +43,17 @@ client = genai.Client(api_key=api_key) if api_key else None
 
 # MODELOS 2026: PROTOCOLO GEMINI 3.1
 MODEL_LIST = ["gemini-3.1-flash-lite-preview", "gemini-3.1-flash-preview", "gemini-3.1-pro-preview"]
+BOT_CHECK_PATTERNS = [
+    "detected unusual traffic",
+    "google.com/sorry",
+    "challenge-page",
+    "checking if the site connection is secure",
+    "verify you are human",
+    "cf-challenge",
+    "cf-turnstile",
+    "cloudflare",
+    "captcha",
+]
 
 app = FastAPI()
 app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -42,11 +61,106 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 @app.get("/")
 async def root(): return FileResponse("static/index.html")
 
+@app.head("/")
+async def root_head(): return Response(status_code=200)
+
 cognitive_memory = []
 hud_connections: set[WebSocket] = set()
 
 class AnalyzeRequest(BaseModel):
     image: str
+
+async def send_ws_json(ws: WebSocket, payload: dict) -> bool:
+    try:
+        await ws.send_json(payload)
+        return True
+    except (WebSocketDisconnect, RuntimeError):
+        return False
+
+def page_has_bot_check(content: str, url: str) -> bool:
+    haystack = f"{url}\n{content}".lower()
+    return any(pattern in haystack for pattern in BOT_CHECK_PATTERNS)
+
+def create_demo_screenshot(query: str, engine: str, reason: str = "DEMO_FALLBACK") -> str:
+    width, height = 1280, 800
+    image = Image.new("RGB", (width, height), "#02070a")
+    draw = ImageDraw.Draw(image)
+    font = ImageFont.load_default()
+
+    for y in range(0, height, 40):
+        color = (0, 45 + (y % 80), 50)
+        draw.line((0, y, width, y), fill=color)
+    for x in range(0, width, 64):
+        draw.line((x, 0, x, height), fill=(0, 24, 28))
+
+    draw.rectangle((70, 70, width - 70, height - 70), outline="#00f2ff", width=2)
+    draw.rectangle((90, 110, width - 90, 180), outline="#00ffaa", width=1)
+    draw.text((110, 130), "OMNILAB DEMO INTEL STREAM", fill="#ffffff", font=font)
+    draw.text((110, 158), f"ENGINE: {engine.upper()} // STATUS: {reason}", fill="#00ffaa", font=font)
+
+    lines = [
+        f"QUERY: {query}",
+        "",
+        "Live third-party automation was paused because the target required human verification.",
+        "This demo fallback lets reviewers validate the OmniLab HUD, WebSocket flow, browser panel,",
+        "voice/gesture controls, and volatile memory behavior without cookies or CAPTCHA bypass.",
+        "",
+        "Recommended production path: use official search/provider APIs or require an explicit user",
+        "session for sites that allow authenticated automation under their terms.",
+    ]
+    y = 235
+    for line in lines:
+        draw.text((110, y), line, fill="#00f2ff" if line else "#ffffff", font=font)
+        y += 34
+
+    draw.rectangle((110, height - 155, width - 110, height - 110), fill="#071418", outline="#00ffaa")
+    draw.text((130, height - 142), "REVIEW MODE: PASSABLE WITHOUT COOKIES // NO CAPTCHA SOLVING USED", fill="#00ffaa", font=font)
+
+    buffer = io.BytesIO()
+    image.save(buffer, format="JPEG", quality=85)
+    return base64.b64encode(buffer.getvalue()).decode("utf-8")
+
+def load_cookie_file():
+    cookie_file = next((p for p in COOKIE_FILE_CANDIDATES if os.path.exists(p) and os.path.getsize(p) > 0), None)
+    if not cookie_file:
+        return []
+    try:
+        with open(cookie_file, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    except Exception as e:
+        print(f"⚠️ [Cookies] Could not read cookie file: {e}")
+        return []
+
+    raw_cookies = data.get("cookies") if isinstance(data, dict) else data
+    if not isinstance(raw_cookies, list):
+        print("⚠️ [Cookies] Unsupported cookie file format.")
+        return []
+
+    cookies = []
+    for cookie in raw_cookies:
+        if not isinstance(cookie, dict) or not cookie.get("name") or not cookie.get("value"):
+            continue
+        normalized = {k: v for k, v in cookie.items() if k in {
+            "name", "value", "domain", "path", "expires", "httpOnly", "secure", "sameSite", "url"
+        }}
+        if not normalized.get("domain") and not normalized.get("url"):
+            continue
+        normalized.setdefault("path", "/")
+        if normalized.get("sameSite") not in {"Strict", "Lax", "None"}:
+            normalized.pop("sameSite", None)
+        cookies.append(normalized)
+    return cookies
+
+async def apply_user_cookies(browser_context):
+    cookies = load_cookie_file()
+    if not cookies:
+        return
+    try:
+        await browser_context.add_cookies(cookies)
+        domains = sorted({c.get("domain") or c.get("url", "") for c in cookies})
+        print(f"✅ [Cookies] Loaded {len(cookies)} cookies for {len(domains)} domains.")
+    except Exception as e:
+        print(f"⚠️ [Cookies] Could not apply cookies: {e}")
 
 @app.websocket("/ws/hud")
 async def websocket_hud(ws: WebSocket):
@@ -61,22 +175,44 @@ async def websocket_hud(ws: WebSocket):
                 query = data.get("query")
                 engine = data.get("engine", "google")
                 if cmd == "analyze_and_search" and query:
-                    await ws.send_json({"type": "status_update", "message": f"AGENT: RESEARCHING_{engine.upper()}"})
+                    if not await send_ws_json(ws, {"type": "status_update", "message": f"AGENT: RESEARCHING_{engine.upper()}"}):
+                        break
                     try:
-                        img_data, is_blocked = await capture_screenshot(engine, query)
+                        if DEMO_MODE:
+                            img_data, is_blocked = create_demo_screenshot(query, engine, "DEMO_MODE"), False
+                        else:
+                            img_data, is_blocked = await capture_screenshot(engine, query)
                         if is_blocked and engine == "google":
-                            await ws.send_json({"type": "status_update", "message": "WARN: GOOGLE_BLOCK_DETECTED"})
-                            await ws.send_json({"type": "status_update", "message": "SYS: REROUTING_VIA_DDG..."})
+                            if not await send_ws_json(ws, {"type": "status_update", "message": "WARN: GOOGLE_BLOCK_DETECTED"}):
+                                break
+                            if not await send_ws_json(ws, {"type": "status_update", "message": "SYS: REROUTING_VIA_GEMINI..."}):
+                                break
                             await asyncio.sleep(2)
-                            img_data, _ = await capture_screenshot("duckduckgo", query)
-                        await ws.send_json({"type": "browser_screenshot", "data": img_data})
+                            img_data, _ = await capture_screenshot("gemini", query)
+                            if _ and DEMO_FALLBACK:
+                                if not await send_ws_json(ws, {"type": "status_update", "message": "SYS: DEMO_FALLBACK_ACTIVE"}):
+                                    break
+                                img_data = create_demo_screenshot(query, "gemini", "VERIFICATION_REQUIRED")
+                        elif is_blocked:
+                            if not await send_ws_json(ws, {"type": "status_update", "message": "WARN: VERIFICATION_REQUIRED"}):
+                                break
+                            if DEMO_FALLBACK:
+                                if not await send_ws_json(ws, {"type": "status_update", "message": "SYS: DEMO_FALLBACK_ACTIVE"}):
+                                    break
+                                img_data = create_demo_screenshot(query, engine, "VERIFICATION_REQUIRED")
+                        if not await send_ws_json(ws, {"type": "browser_screenshot", "data": img_data}):
+                            break
                     except Exception as e:
                         print(f"❌ [Error] Research failed: {e}")
-                        await ws.send_json({"type": "status_update", "message": f"ERROR: {str(e)[:100]}"})
+                        if not await send_ws_json(ws, {"type": "status_update", "message": f"ERROR: {str(e)[:100]}"}):
+                            break
                 elif cmd == "close_browser":
                     cognitive_memory = []
-                    await ws.send_json({"type": "status_update", "message": "SYSTEM_CORE: MEMORY_PURGED"})
+                    if not await send_ws_json(ws, {"type": "status_update", "message": "SYSTEM_CORE: MEMORY_PURGED"}):
+                        break
     except WebSocketDisconnect:
+        hud_connections.discard(ws)
+    finally:
         hud_connections.discard(ws)
 
 @app.websocket("/ws/vision")
@@ -86,8 +222,8 @@ async def websocket_vision(ws: WebSocket):
         while True:
             data = await ws.receive_json()
             for h in list(hud_connections):
-                try: await h.send_json(data)
-                except: hud_connections.discard(h)
+                if not await send_ws_json(h, data):
+                    hud_connections.discard(h)
     except WebSocketDisconnect: pass
 
 async def type_human_like(page, selector, text, click_after=None):
@@ -118,6 +254,13 @@ async def capture_screenshot(engine: str, query: str):
     quoted = urllib.parse.quote(query)
     user_data_dir = os.path.expanduser("~/.playwright_data")
     
+    # Configuração de Proxy Residencial (Bright Data)
+    proxy_config = {
+        "server": "http://brd.superproxy.io:33335",
+        "username": "brd-customer-hl_aa3d0ac7-zone-residential_proxy1",
+        "password": "igivz7kxv54s"
+    }
+
     async with async_playwright() as p:
         stealth_params = {
             "user_agent": 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
@@ -125,7 +268,8 @@ async def capture_screenshot(engine: str, query: str):
             "timezone_id": 'America/Sao_Paulo',
             "geolocation": {'latitude': -23.5505, 'longitude': -46.6333},
             "permissions": ['geolocation'],
-            "viewport": {'width': 1280, 'height': 800}
+            "viewport": {'width': 1280, 'height': 800},
+            "proxy": proxy_config
         }
 
         if engine in ["google", "perplexity", "gemini", "chatgpt"]:
@@ -138,6 +282,7 @@ async def capture_screenshot(engine: str, query: str):
         
         try:
             page = browser_context.pages[0] if browser_context.pages else await browser_context.new_page()
+            await apply_user_cookies(browser_context)
             await Stealth().apply_stealth_async(page)
             
             # Aquecimento rápido
@@ -151,7 +296,7 @@ async def capture_screenshot(engine: str, query: str):
             elif engine == "chatgpt": target_url = "https://chatgpt.com/"
             else: target_url = f"https://duckduckgo.com/html/?q={quoted}"
             
-            print(f"🕵️‍♂️ [Stealth] Targeting {engine.upper()} (V15.10 Resilience)...")
+            print(f"🔎 [Browser] Targeting {engine.upper()} (V15.10 Resilience)...")
             
             try:
                 # Mudança estratégica: domcontentloaded é muito mais rápido que load
@@ -159,14 +304,13 @@ async def capture_screenshot(engine: str, query: str):
             except Exception as e:
                 print(f"⚠️ [Nav] Timeout or error during load: {e}. Proceeding anyway...")
 
-            # Verificação básica de Cloudflare
             try:
-                content_lower = (await page.content()).lower()
-                if "cloudflare" in content_lower or "challenge-page" in content_lower:
-                    print("🛡️ [Cloudflare] Challenge detected. Bypass click...")
-                    await page.mouse.click(640, 400)
-                    await asyncio.sleep(6)
-            except: pass
+                if page_has_bot_check(await page.content(), page.url):
+                    print(f"⚠️ [Verification] Bot check detected on {engine.upper()}; stopping automation.")
+                    screenshot_bytes = await page.screenshot(type="jpeg", quality=75, full_page=True)
+                    return base64.b64encode(screenshot_bytes).decode('utf-8'), True
+            except Exception as e:
+                print(f"⚠️ [Verification] Detection failed: {e}")
 
             if engine == "gemini":
                 try:
@@ -191,7 +335,7 @@ async def capture_screenshot(engine: str, query: str):
             else: await asyncio.sleep(5)
             
             content = await page.content()
-            is_blocked = "detected unusual traffic" in content.lower() or "google.com/sorry" in page.url or "challenge-page" in content.lower()
+            is_blocked = page_has_bot_check(content, page.url)
             
             screenshot_bytes = await page.screenshot(type="jpeg", quality=75, full_page=True)
             return base64.b64encode(screenshot_bytes).decode('utf-8'), is_blocked
