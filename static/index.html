@@ -47,6 +47,8 @@
             .cmd-btn { background: rgba(255, 255, 255, 0.02); border: none; border-right: 2px solid var(--text-color); color: var(--text-color); padding: 14px 20px; cursor: pointer; font-size: 0.75em; transition: 0.4s; text-align: right; font-weight: 700; letter-spacing: 2px; }
             .cmd-btn:hover { background: rgba(0, 242, 255, 0.05); color: #fff; text-shadow: 0 0 10px var(--text-color); }
             .cmd-btn.special { border-right-color: var(--accent-color); color: var(--accent-color); animation: pulseGlow 2s infinite; }
+            .cmd-btn.mic-primary { display:flex; align-items:center; justify-content:space-between; border:1px solid rgba(0,242,255,0.28); border-right:3px solid var(--accent-color); background:rgba(0,242,255,0.08); color:#fff; box-shadow:0 0 18px rgba(0,242,255,0.16); }
+            .cmd-btn.mic-primary.active { background:rgba(0,255,170,0.16); border-color:rgba(0,255,170,0.45); box-shadow:0 0 24px rgba(0,255,170,0.28); color:var(--accent-color); }
             .cmd-btn.warn { border-right-color: var(--warn-color); color: var(--warn-color); }
             @keyframes pulseGlow { 0% { box-shadow: 0 0 5px rgba(0, 255, 170, 0.2); } 50% { box-shadow: 0 0 20px rgba(0, 255, 170, 0.6); background: rgba(0, 255, 170, 0.1); } 100% { box-shadow: 0 0 5px rgba(0, 255, 170, 0.2); } }
             #browser-view { position: absolute; top: 45%; left: 50%; transform: translate(-50%, -50%); width: 85%; height: 80%; background: #000; border: 1px solid rgba(255, 255, 255, 0.15); display: none; flex-direction: column; z-index: 2000; pointer-events: auto; box-shadow: 0 0 180px rgba(0,0,0,1); backdrop-filter: blur(40px); }
@@ -117,7 +119,7 @@
                 </div>
                 <button class="cmd-btn" id="session-btn" onclick="toggleSearchSession()" title="Continue Perplexity context across searches">SESSION: CONTINUE</button>
 
-                <button class="cmd-btn" id="mic-btn" onclick="toggleMic()" title="Enable spoken commands">VOICE_INPUT: OFF</button>
+                <button class="cmd-btn mic-primary" id="mic-btn" onclick="toggleMic()" title="Enable spoken commands"><span>VOICE INPUT: OFF</span><span>🎙</span></button>
                 <button class="cmd-btn special" id="vision-btn" onclick="toggleVision()" title="Camera stays in browser except captured analysis frames">ACTIVATE CAMERA</button>
                 <button class="cmd-btn" id="scan-btn" onclick="runAnalyze(false)" title="Analyze the current camera frame">ENVIRONMENT SCAN</button>
                 <button class="cmd-btn special" onclick="runAnalyze(true)" title="Analyze the current frame and search the suggested target">SCAN + RESEARCH</button>
@@ -140,9 +142,10 @@
             const mouseCursor = document.getElementById('custom-mouse');
             document.addEventListener('mousemove', (e) => { mouseCursor.style.left = e.clientX + 'px'; mouseCursor.style.top = e.clientY + 'px'; });
 
-            let lastSuggestedQuery = "", currentEngine = "web", searchSessionId = crypto.randomUUID().slice(0, 8), continueSearchSession = true, isMicActive = false, isScanning = false, lastXTriggerTime = 0, lastThumbsUpTriggerTime = 0, actionHoldTime = 0, isTTSActive = true, voices = [], isGesturesAuto = false;
+            let lastSuggestedQuery = "", currentEngine = "web", searchSessionId = crypto.randomUUID().slice(0, 8), continueSearchSession = true, isMicActive = false, isScanning = false, lastXTriggerTime = 0, lastThumbsUpTriggerTime = 0, lastPinchTriggerTime = 0, actionHoldTime = 0, isTTSActive = true, voices = [], isGesturesAuto = false;
             const HOLD_THRESHOLD = 1500;
             const THUMB_SCAN_COOLDOWN = 4500;
+            const PINCH_CONFIRM_COOLDOWN = 1800;
 
             function hideGuide() {
                 document.getElementById('guide-panel').classList.add('hidden');
@@ -241,7 +244,8 @@
 
             function toggleMic() { if (isMicActive) stopMic(); else startMic(); }
             function startMic() { if (recognition) try { recognition.start(); } catch(e) {} }
-            function stopMic() { isMicActive = false; if (recognition) recognition.stop(); document.getElementById('mic-btn').innerText = "VOICE OFF"; document.getElementById('mic-btn').classList.remove('active'); addLog("VOX_LINK: DISCONNECTED", "warn"); }
+            function setMicLabel(text) { document.getElementById('mic-btn').innerHTML = `<span>${text}</span><span>🎙</span>`; }
+            function stopMic() { isMicActive = false; if (recognition) recognition.stop(); setMicLabel("VOICE INPUT: OFF"); document.getElementById('mic-btn').classList.remove('active'); addLog("VOX_LINK: DISCONNECTED", "warn"); }
 
             function processVoiceCommand(cmd) {
                 const isConfirm = cmd.includes("yes") || cmd.includes("sim") || cmd.includes("search") || cmd.includes("pesquisar");
@@ -358,8 +362,10 @@
                             runAnalyze(false);
                         }
 
-                        if (isGesturesAuto) {
-                            if (gestureData.gesture === "pinch" && lastSuggestedQuery && !isScanning) confirmResearch();
+                        if (gestureData.gesture === "pinch" && lastSuggestedQuery && !isScanning && nowInMs - lastPinchTriggerTime > PINCH_CONFIRM_COOLDOWN) {
+                            lastPinchTriggerTime = nowInMs;
+                            addLog("GESTURE_CMD: PINCH_CONFIRM", "system");
+                            confirmResearch();
                         }
 
                         if (gestureData.gesture === "victory" && !isScanning) {
@@ -395,7 +401,7 @@
                 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
                 recognition = new SpeechRecognition();
                 recognition.continuous = true; recognition.interimResults = true; recognition.lang = userLang;
-                recognition.onstart = () => { isMicActive = true; document.getElementById('mic-btn').innerText = "VOICE: LISTENING"; document.getElementById('mic-btn').classList.add('active'); addLog("VOX_LINK: ESTABLISHED", "system"); };
+                recognition.onstart = () => { isMicActive = true; setMicLabel("VOICE: LISTENING"); document.getElementById('mic-btn').classList.add('active'); addLog("VOX_LINK: ESTABLISHED", "system"); };
                 recognition.onresult = (event) => {
                     let transcript = '';
                     for (let i = event.resultIndex; i < event.results.length; ++i) {
@@ -474,7 +480,7 @@
                 } catch (err) {
                     addLog("SCAN FAILED", "warn");
                 }
-                setTimeout(() => { isScanning = false; }, 5000);
+                isScanning = false;
             }
 
             function focusTargetField() {

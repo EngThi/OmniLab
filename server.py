@@ -355,10 +355,10 @@ def render_perplexity_result(query: str, answer: str, citations: list[str], rout
 
     draw.rounded_rectangle((44, 36, width - 44, 150), radius=18, fill=card, outline=faint, width=2)
     draw.rounded_rectangle((70, 60, 210, 92), radius=16, fill=teal_soft)
-    draw.text((90, 67), "WEB ANSWER", fill=teal, font=small_font)
-    draw.text((70, 103), "Perplexity Search", fill=ink, font=title_font)
-    session_text = f"Session {session_id} · {'continued' if continued else 'new'}"
-    draw.text((width - 350, 67), session_text, fill=muted, font=subtitle_font)
+    draw.text((90, 67), "SOURCED ANSWER", fill=teal, font=small_font)
+    draw.text((70, 103), "Web Research", fill=ink, font=title_font)
+    session_text = "continued session" if continued else "new session"
+    draw.text((width - 240, 72), session_text, fill=muted, font=small_font)
 
     query_text = md_clean(query)
     draw.rounded_rectangle((44, 170, width - 44, 238), radius=14, fill="#eef5ff", outline="#d7e4f5", width=1)
@@ -413,7 +413,7 @@ def render_perplexity_result(query: str, answer: str, citations: list[str], rout
     else:
         draw.text((70, y), "No sources returned by provider.", fill=muted, font=source_font)
 
-    footer = "Perplexity account session · real web answer · no placeholder content"
+    footer = "real web answer · source-backed · no placeholder content"
     draw.text((70, height - 34), footer, fill=muted, font=small_font)
     buffer = io.BytesIO()
     image.save(buffer, format="JPEG", quality=92)
