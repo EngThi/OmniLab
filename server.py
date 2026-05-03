@@ -250,9 +250,7 @@ def render_search_results(query: str, provider: str, items: list[dict]) -> str:
     return base64.b64encode(buffer.getvalue()).decode("utf-8")
 
 def render_perplexity_result(query: str, answer: str, citations: list[str], routing: dict, session_id: str, continued: bool) -> str:
-    width, height = 1280, 1080
-    image = Image.new("RGB", (width, height), "#f6f8fb")
-    draw = ImageDraw.Draw(image)
+    width = 1280
     font_paths = [
         "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
         "/usr/share/fonts/truetype/liberation2/LiberationSans-Regular.ttf",
@@ -306,16 +304,54 @@ def render_perplexity_result(query: str, answer: str, citations: list[str], rout
             return "quote", "", md_clean(line.lstrip(">").strip())
         return "body", "", md_clean(line)
 
-    def draw_wrapped(text: str, x: int, y: int, max_chars: int, font, fill: str, line_height: int, max_y: int, prefix: str = ""):
+    def wrap_parts(text: str, max_chars: int):
+        return textwrap.wrap(text, width=max_chars) or [""]
+
+    def build_answer_blocks(text: str):
+        blocks = []
+        clean = re.sub(r"\n{3,}", "\n\n", text or "").strip()
+        for raw in clean.splitlines():
+            kind, prefix, value = line_kind(raw)
+            if kind == "blank":
+                blocks.append({"kind": kind, "height": 12})
+            elif kind == "heading":
+                parts = wrap_parts(value, 76)
+                blocks.append({"kind": kind, "text": value, "height": 6 + len(parts) * 28 + 10})
+            elif kind == "bullet":
+                parts = wrap_parts(value, 102)
+                blocks.append({"kind": kind, "prefix": prefix, "text": value, "height": len(parts) * 25 + 5})
+            elif kind == "quote":
+                parts = wrap_parts(value, 96)
+                blocks.append({"kind": kind, "text": value, "height": len(parts) * 25 + 8})
+            else:
+                lead_match = re.match(r"^([^:]{3,48}):\s+(.+)$", value)
+                if lead_match:
+                    label, rest = lead_match.groups()
+                    parts = wrap_parts(rest, 104)
+                    blocks.append({"kind": "lead", "label": label, "text": rest, "height": 26 + len(parts) * 25 + 10})
+                else:
+                    parts = wrap_parts(value, 108)
+                    blocks.append({"kind": kind, "text": value, "height": len(parts) * 25 + 10})
+        return blocks
+
+    def draw_wrapped(text: str, x: int, y: int, max_chars: int, font, fill: str, line_height: int, prefix: str = ""):
         first_prefix = prefix
         next_prefix = " " * len(prefix)
-        for idx, part in enumerate(textwrap.wrap(text, width=max_chars) or [""]):
-            if y + line_height > max_y:
-                draw.text((x, y), "...", fill=muted, font=font)
-                return y + line_height, True
+        for idx, part in enumerate(wrap_parts(text, max_chars)):
             draw.text((x, y), (first_prefix if idx == 0 else next_prefix) + part, fill=fill, font=font)
             y += line_height
-        return y, False
+        return y
+
+    answer_blocks = build_answer_blocks(answer)
+    answer_top = 266
+    answer_height = min(max(360, sum(block["height"] for block in answer_blocks) + 96), 1750)
+    answer_bottom = answer_top + answer_height
+    source_top = answer_bottom + 26
+    source_rows = min(len(citations), 6) if citations else 1
+    source_bottom = source_top + 92 + source_rows * 50
+    height = source_bottom + 64
+    image = Image.new("RGB", (width, height), "#f6f8fb")
+    draw = ImageDraw.Draw(image)
 
     draw.rounded_rectangle((44, 36, width - 44, 150), radius=18, fill=card, outline=faint, width=2)
     draw.rounded_rectangle((70, 60, 210, 92), radius=16, fill=teal_soft)
@@ -327,45 +363,39 @@ def render_perplexity_result(query: str, answer: str, citations: list[str], rout
     query_text = md_clean(query)
     draw.rounded_rectangle((44, 170, width - 44, 238), radius=14, fill="#eef5ff", outline="#d7e4f5", width=1)
     draw.text((70, 190), "Query", fill=blue, font=small_font)
-    draw_wrapped(query_text, 132, 188, 120, subtitle_font, ink, 24, 225)
+    draw_wrapped(query_text, 132, 188, 120, subtitle_font, ink, 24)
 
-    answer_top = 266
-    answer_bottom = 805
     draw.rounded_rectangle((44, answer_top, width - 44, answer_bottom), radius=18, fill=card, outline=faint, width=2)
     draw.text((70, answer_top + 26), "Answer", fill=teal, font=section_font)
 
     y = answer_top + 66
-    clean_answer = re.sub(r"\n{3,}", "\n\n", answer or "").strip()
-    for raw in clean_answer.splitlines():
-        kind, prefix, text = line_kind(raw)
+    for block in answer_blocks:
+        if y + block["height"] > answer_bottom - 30:
+            draw.text((70, y), "Response continues in the Perplexity session; ask a follow-up or narrow the query.", fill=muted, font=body_font)
+            break
+        kind = block["kind"]
         if kind == "blank":
             y += 12
             continue
         if kind == "heading":
             y += 6
-            y, clipped = draw_wrapped(text, 70, y, 76, section_font, ink, 28, answer_bottom - 32)
+            y = draw_wrapped(block["text"], 70, y, 76, section_font, ink, 28)
             y += 10
         elif kind == "bullet":
-            y, clipped = draw_wrapped(text, 92, y, 102, body_font, ink, 25, answer_bottom - 32, prefix=f"{prefix} ")
+            y = draw_wrapped(block["text"], 92, y, 102, body_font, ink, 25, prefix=f"{block['prefix']} ")
             y += 5
         elif kind == "quote":
-            draw.rectangle((70, y, 76, min(y + 52, answer_bottom - 32)), fill="#d7e4f5")
-            y, clipped = draw_wrapped(text, 92, y, 96, body_font, muted, 25, answer_bottom - 32)
+            draw.rectangle((70, y, 76, y + max(28, block["height"] - 8)), fill="#d7e4f5")
+            y = draw_wrapped(block["text"], 92, y, 96, body_font, muted, 25)
             y += 8
-        else:
-            lead_match = re.match(r"^([^:]{3,48}):\s+(.+)$", text)
-            if lead_match:
-                label, rest = lead_match.groups()
-                draw.text((70, y), f"{label}:", fill=ink, font=body_bold)
-                y, clipped = draw_wrapped(rest, 70, y + 26, 104, body_font, ink, 25, answer_bottom - 32)
-            else:
-                y, clipped = draw_wrapped(text, 70, y, 108, body_font, ink, 25, answer_bottom - 32)
+        elif kind == "lead":
+            draw.text((70, y), f"{block['label']}:", fill=ink, font=body_bold)
+            y = draw_wrapped(block["text"], 70, y + 26, 104, body_font, ink, 25)
             y += 10
-        if clipped:
-            break
+        else:
+            y = draw_wrapped(block["text"], 70, y, 108, body_font, ink, 25)
+            y += 10
 
-    source_top = 830
-    source_bottom = height - 58
     draw.rounded_rectangle((44, source_top, width - 44, source_bottom), radius=18, fill=card, outline=faint, width=2)
     draw.text((70, source_top + 24), "Sources", fill=teal, font=section_font)
     y = source_top + 62
