@@ -91,10 +91,8 @@
             </div>
             <div id="control-panel">
                 <div class="engine-bar">
-                    <button class="eng-btn active" id="eng-web" onclick="setEngine('web')">WEB SEARCH</button>
-                    <button class="eng-btn" id="eng-perplexity" onclick="setEngine('perplexity')">PERPLEXITY</button>
+                    <button class="eng-btn active" id="eng-web" onclick="setEngine('web')">SEARCH</button>
                     <button class="eng-btn" id="eng-gemini" onclick="setEngine('gemini')">GEMINI</button>
-                    <button class="eng-btn" id="eng-chatgpt" onclick="setEngine('chatgpt')">CHATGPT</button>
                 </div>
                 <input type="text" id="tts-input" placeholder="VOICE_SYNTH_PROMPT" onkeydown="if(event.key==='Enter') manualSpeak()" />
                 <input type="text" id="search-box" placeholder="TARGET_IDENTIFIER" />
@@ -526,7 +524,7 @@
                     addLog("WEBSOCKET OFFLINE", "warn");
                 }
             }
-            function setEngine(eng) { currentEngine = eng; document.querySelectorAll('.eng-btn').forEach(btn => btn.classList.remove('active')); document.getElementById(`eng-${eng}`).classList.add('active'); addLog(`TARGET SYNCED: ${(eng === "web" ? "WEB SEARCH" : eng).toUpperCase()}`, "system"); }
+            function setEngine(eng) { currentEngine = eng; document.querySelectorAll('.eng-btn').forEach(btn => btn.classList.remove('active')); document.getElementById(`eng-${eng}`).classList.add('active'); addLog(`TARGET SYNCED: ${(eng === "web" ? "SEARCH" : eng).toUpperCase()}`, "system"); }
             function cleanTacticalText(t) { return t ? t.replace(/[\*#\-_\[\]\(\)>]/g, "").replace(/\s+/g, " ").toUpperCase() : ""; }
             function animate() { requestAnimationFrame(animate); stars.rotation.y += 0.001; stars.rotation.x += 0.0005; r1.rotation.z += 0.025; r2.rotation.y += 0.05; r3.rotation.z -= 0.015; renderer.render(scene, camera); }
             connect(); animate();

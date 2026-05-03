@@ -878,7 +878,28 @@ async def capture_screenshot(engine: str, query: str):
                     gemini_send_btn = "button[aria-label*='Send'], .send-button-container button, div.send-button-container button"
                     input_selector = "div[contenteditable='true']"
                     await type_human_like(page, input_selector, query, click_after=gemini_send_btn)
-                    await asyncio.sleep(25)
+                    await asyncio.sleep(18)
+                    try:
+                        await page.wait_for_load_state("networkidle", timeout=15000)
+                    except Exception:
+                        pass
+                    answer_selectors = [
+                        "message-content",
+                        ".markdown",
+                        "div[role='presentation']",
+                        "main",
+                    ]
+                    for selector in answer_selectors:
+                        try:
+                            await page.locator(selector).last.scroll_into_view_if_needed(timeout=4000)
+                            break
+                        except Exception:
+                            continue
+                    for _ in range(5):
+                        await page.mouse.wheel(0, 900)
+                        await asyncio.sleep(0.7)
+                    await page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
+                    await asyncio.sleep(2)
                 except Exception as e: print(f"⚠️ Gemini Error: {e}")
 
             elif engine == "chatgpt":
