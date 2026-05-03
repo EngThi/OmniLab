@@ -1,15 +1,20 @@
-import hashlib
-import time
 import asyncio
 import base64
 import os
-import io
 import json
-import itertools
 import re
 import random
+import textwrap
+import io
+import subprocess
+import shutil
+import uuid
+from html.parser import HTMLParser
+from html import unescape
+from urllib.parse import urlparse, parse_qs
+import httpx
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
-from fastapi.responses import FileResponse, JSONResponse, Response
+from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from PIL import Image, ImageDraw, ImageFont
@@ -17,15 +22,21 @@ from dotenv import load_dotenv
 from google import genai
 from google.genai import types
 from playwright.async_api import async_playwright
-from contextlib import asynccontextmanager, AsyncExitStack
 
 load_dotenv()
 
-# ── FORCED DEMO MODE & KEY CHECK ──
+# ── CONFIG ──
 api_key = os.getenv("GEMINI_API_KEY")
-DEMO_MODE = os.getenv("DEMO_MODE", "false").lower() == "true"
-DEMO_FALLBACK = os.getenv("DEMO_FALLBACK", "true").lower() == "true"
 COOKIE_FILE = os.path.expanduser(os.getenv("COOKIE_FILE", "~/arq.json"))
+PLAYWRIGHT_USER_DATA_DIR = os.path.expanduser(os.getenv("PLAYWRIGHT_USER_DATA_DIR", "~/.playwright_data"))
+GOOGLE_CSE_API_KEY = os.getenv("GOOGLE_CSE_API_KEY")
+GOOGLE_CSE_CX = os.getenv("GOOGLE_CSE_CX")
+BRAVE_SEARCH_API_KEY = os.getenv("BRAVE_SEARCH_API_KEY")
+SEARCH_PROXY_FILE = os.path.expanduser(os.getenv("SEARCH_PROXY_FILE", ""))
+PWM_COMMAND = os.path.expanduser(os.getenv("PWM_COMMAND", "/home/ubuntu/.local/bin/pwm"))
+PWM_PYTHON = os.path.expanduser(os.getenv("PWM_PYTHON", "/home/ubuntu/.local/share/pipx/venvs/perplexity-web-mcp-cli/bin/python"))
+PERPLEXITY_TOKEN_FILE = os.path.expanduser(os.getenv("PERPLEXITY_TOKEN_FILE", "~/.config/perplexity-web-mcp/token"))
+PERPLEXITY_SESSION_TURNS = int(os.getenv("PERPLEXITY_SESSION_TURNS", "4"))
 COOKIE_FILE_CANDIDATES = [
     COOKIE_FILE,
     os.path.expanduser("~/arq.json"),
@@ -35,7 +46,6 @@ COOKIE_FILE_CANDIDATES = [
 
 if not api_key:
     print("⚠️ [System] GEMINI_API_KEY NOT FOUND!")
-    DEMO_MODE = True
 else:
     print(f"✅ [System] V15.15 Active (Purple Dot). API Key detected: {api_key[:4]}...{api_key[-4:]}")
 
@@ -66,6 +76,7 @@ async def root_head(): return Response(status_code=200)
 
 cognitive_memory = []
 hud_connections: set[WebSocket] = set()
+perplexity_sessions = {}
 
 class AnalyzeRequest(BaseModel):
     image: str
@@ -81,44 +92,493 @@ def page_has_bot_check(content: str, url: str) -> bool:
     haystack = f"{url}\n{content}".lower()
     return any(pattern in haystack for pattern in BOT_CHECK_PATTERNS)
 
-def create_demo_screenshot(query: str, engine: str, reason: str = "DEMO_FALLBACK") -> str:
-    width, height = 1280, 800
-    image = Image.new("RGB", (width, height), "#02070a")
+def load_proxy_config():
+    if not SEARCH_PROXY_FILE or not os.path.exists(SEARCH_PROXY_FILE):
+        return None
+    try:
+        with open(SEARCH_PROXY_FILE, "r", encoding="utf-8") as f:
+            rows = [line.strip() for line in f if line.strip() and not line.strip().startswith("#")]
+    except Exception as e:
+        print(f"⚠️ [Proxy] Could not read proxy file: {e}")
+        return None
+    if not rows:
+        return None
+    try:
+        host, port, username, password = random.choice(rows).split(":", 3)
+    except ValueError:
+        print("⚠️ [Proxy] Expected proxy format host:port:username:password")
+        return None
+    print(f"🌐 [Proxy] Using search proxy {host}:{port}")
+    return {
+        "server": f"http://{host}:{port}",
+        "username": username,
+        "password": password,
+    }
+
+def render_search_results(query: str, provider: str, items: list[dict]) -> str:
+    width, height = 1280, 900
+    image = Image.new("RGB", (width, height), "#051014")
     draw = ImageDraw.Draw(image)
     font = ImageFont.load_default()
+    accent = "#00f2ff"
+    green = "#00ffaa"
+    muted = "#8fb6bd"
 
-    for y in range(0, height, 40):
-        color = (0, 45 + (y % 80), 50)
-        draw.line((0, y, width, y), fill=color)
-    for x in range(0, width, 64):
-        draw.line((x, 0, x, height), fill=(0, 24, 28))
+    draw.rectangle((0, 0, width, height), fill="#051014")
+    for y in range(0, height, 48):
+        draw.line((0, y, width, y), fill="#08262c")
+    draw.rectangle((50, 45, width - 50, 130), outline=accent, width=2)
+    draw.text((75, 68), "OMNILAB WEB SEARCH", fill="#ffffff", font=font)
+    draw.text((75, 95), f"PROVIDER: {provider.upper()} // QUERY: {query}", fill=green, font=font)
 
-    draw.rectangle((70, 70, width - 70, height - 70), outline="#00f2ff", width=2)
-    draw.rectangle((90, 110, width - 90, 180), outline="#00ffaa", width=1)
-    draw.text((110, 130), "OMNILAB DEMO INTEL STREAM", fill="#ffffff", font=font)
-    draw.text((110, 158), f"ENGINE: {engine.upper()} // STATUS: {reason}", fill="#00ffaa", font=font)
+    y = 165
+    if not items:
+        draw.text((75, y), "NO RESULTS RETURNED BY SEARCH PROVIDER.", fill="#ff5577", font=font)
+    for idx, item in enumerate(items[:8], start=1):
+        title = item.get("title") or "Untitled result"
+        link = item.get("link") or item.get("formattedUrl") or ""
+        snippet = item.get("snippet") or ""
+        draw.text((75, y), f"{idx}. {title[:145]}", fill="#ffffff", font=font)
+        y += 24
+        if link:
+            draw.text((95, y), link[:160], fill=green, font=font)
+            y += 22
+        for line in textwrap.wrap(snippet, width=150)[:3]:
+            draw.text((95, y), line, fill=muted, font=font)
+            y += 20
+        y += 18
+        if y > height - 90:
+            break
 
-    lines = [
-        f"QUERY: {query}",
-        "",
-        "Live third-party automation was paused because the target required human verification.",
-        "This demo fallback lets reviewers validate the OmniLab HUD, WebSocket flow, browser panel,",
-        "voice/gesture controls, and volatile memory behavior without cookies or CAPTCHA bypass.",
-        "",
-        "Recommended production path: use official search/provider APIs or require an explicit user",
-        "session for sites that allow authenticated automation under their terms.",
-    ]
-    y = 235
-    for line in lines:
-        draw.text((110, y), line, fill="#00f2ff" if line else "#ffffff", font=font)
-        y += 34
-
-    draw.rectangle((110, height - 155, width - 110, height - 110), fill="#071418", outline="#00ffaa")
-    draw.text((130, height - 142), "REVIEW MODE: PASSABLE WITHOUT COOKIES // NO CAPTCHA SOLVING USED", fill="#00ffaa", font=font)
-
+    draw.rectangle((50, height - 70, width - 50, height - 35), outline="#13444d", width=1)
+    draw.text((75, height - 58), "DATA SOURCE: REAL SEARCH PROVIDER // NO PLACEHOLDER CONTENT", fill=accent, font=font)
     buffer = io.BytesIO()
-    image.save(buffer, format="JPEG", quality=85)
+    image.save(buffer, format="JPEG", quality=88)
     return base64.b64encode(buffer.getvalue()).decode("utf-8")
+
+def render_perplexity_result(query: str, answer: str, citations: list[str], routing: dict, session_id: str, continued: bool) -> str:
+    width, height = 1280, 1080
+    image = Image.new("RGB", (width, height), "#f6f8fb")
+    draw = ImageDraw.Draw(image)
+    font_paths = [
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+        "/usr/share/fonts/truetype/liberation2/LiberationSans-Regular.ttf",
+    ]
+    bold_paths = [
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+        "/usr/share/fonts/truetype/liberation2/LiberationSans-Bold.ttf",
+    ]
+
+    def load_font(size: int, bold: bool = False):
+        for path in (bold_paths if bold else font_paths):
+            if os.path.exists(path):
+                return ImageFont.truetype(path, size=size)
+        return ImageFont.load_default()
+
+    title_font = load_font(30, True)
+    subtitle_font = load_font(17)
+    section_font = load_font(20, True)
+    body_font = load_font(18)
+    body_bold = load_font(18, True)
+    small_font = load_font(14)
+    source_font = load_font(15)
+
+    ink = "#172026"
+    muted = "#63707a"
+    faint = "#e6ebef"
+    card = "#ffffff"
+    teal = "#127c87"
+    teal_soft = "#e5f7f8"
+    blue = "#2557a7"
+
+    def md_clean(text: str) -> str:
+        text = re.sub(r"!\[([^\]]*)\]\([^)]+\)", r"\1", text)
+        text = re.sub(r"\[([^\]]+)\]\(([^)]+)\)", r"\1", text)
+        text = re.sub(r"(\*\*|__|\*|`)", "", text)
+        return re.sub(r"\s+", " ", text).strip()
+
+    def line_kind(raw: str):
+        line = raw.strip()
+        if not line:
+            return "blank", "", ""
+        if line.startswith("#"):
+            return "heading", "", md_clean(line.lstrip("#").strip())
+        bullet = re.match(r"^[-*]\s+(.+)$", line)
+        if bullet:
+            return "bullet", "•", md_clean(bullet.group(1))
+        numbered = re.match(r"^(\d+)[.)]\s+(.+)$", line)
+        if numbered:
+            return "bullet", f"{numbered.group(1)}.", md_clean(numbered.group(2))
+        if line.startswith(">"):
+            return "quote", "", md_clean(line.lstrip(">").strip())
+        return "body", "", md_clean(line)
+
+    def draw_wrapped(text: str, x: int, y: int, max_chars: int, font, fill: str, line_height: int, max_y: int, prefix: str = ""):
+        first_prefix = prefix
+        next_prefix = " " * len(prefix)
+        for idx, part in enumerate(textwrap.wrap(text, width=max_chars) or [""]):
+            if y + line_height > max_y:
+                draw.text((x, y), "...", fill=muted, font=font)
+                return y + line_height, True
+            draw.text((x, y), (first_prefix if idx == 0 else next_prefix) + part, fill=fill, font=font)
+            y += line_height
+        return y, False
+
+    draw.rounded_rectangle((44, 36, width - 44, 150), radius=18, fill=card, outline=faint, width=2)
+    draw.rounded_rectangle((70, 60, 210, 92), radius=16, fill=teal_soft)
+    draw.text((90, 67), "WEB ANSWER", fill=teal, font=small_font)
+    draw.text((70, 103), "Perplexity Search", fill=ink, font=title_font)
+    session_text = f"Session {session_id} · {'continued' if continued else 'new'}"
+    draw.text((width - 350, 67), session_text, fill=muted, font=subtitle_font)
+
+    query_text = md_clean(query)
+    draw.rounded_rectangle((44, 170, width - 44, 238), radius=14, fill="#eef5ff", outline="#d7e4f5", width=1)
+    draw.text((70, 190), "Query", fill=blue, font=small_font)
+    draw_wrapped(query_text, 132, 188, 120, subtitle_font, ink, 24, 225)
+
+    answer_top = 266
+    answer_bottom = 805
+    draw.rounded_rectangle((44, answer_top, width - 44, answer_bottom), radius=18, fill=card, outline=faint, width=2)
+    draw.text((70, answer_top + 26), "Answer", fill=teal, font=section_font)
+
+    y = answer_top + 66
+    clean_answer = re.sub(r"\n{3,}", "\n\n", answer or "").strip()
+    for raw in clean_answer.splitlines():
+        kind, prefix, text = line_kind(raw)
+        if kind == "blank":
+            y += 12
+            continue
+        if kind == "heading":
+            y += 6
+            y, clipped = draw_wrapped(text, 70, y, 76, section_font, ink, 28, answer_bottom - 32)
+            y += 10
+        elif kind == "bullet":
+            y, clipped = draw_wrapped(text, 92, y, 102, body_font, ink, 25, answer_bottom - 32, prefix=f"{prefix} ")
+            y += 5
+        elif kind == "quote":
+            draw.rectangle((70, y, 76, min(y + 52, answer_bottom - 32)), fill="#d7e4f5")
+            y, clipped = draw_wrapped(text, 92, y, 96, body_font, muted, 25, answer_bottom - 32)
+            y += 8
+        else:
+            lead_match = re.match(r"^([^:]{3,48}):\s+(.+)$", text)
+            if lead_match:
+                label, rest = lead_match.groups()
+                draw.text((70, y), f"{label}:", fill=ink, font=body_bold)
+                y, clipped = draw_wrapped(rest, 70, y + 26, 104, body_font, ink, 25, answer_bottom - 32)
+            else:
+                y, clipped = draw_wrapped(text, 70, y, 108, body_font, ink, 25, answer_bottom - 32)
+            y += 10
+        if clipped:
+            break
+
+    source_top = 830
+    source_bottom = height - 58
+    draw.rounded_rectangle((44, source_top, width - 44, source_bottom), radius=18, fill=card, outline=faint, width=2)
+    draw.text((70, source_top + 24), "Sources", fill=teal, font=section_font)
+    y = source_top + 62
+    if citations:
+        for idx, url in enumerate(citations[:6], start=1):
+            parsed = urlparse(url)
+            domain = parsed.netloc.replace("www.", "") or url
+            draw.rounded_rectangle((70, y - 3, 118, y + 21), radius=10, fill=teal_soft)
+            draw.text((88, y), str(idx), fill=teal, font=source_font)
+            draw.text((132, y - 2), domain[:48], fill=ink, font=source_font)
+            draw.text((132, y + 18), url[:135], fill=muted, font=small_font)
+            y += 50
+            if y > source_bottom - 38:
+                break
+    else:
+        draw.text((70, y), "No sources returned by provider.", fill=muted, font=source_font)
+
+    footer = "Perplexity account session · real web answer · no placeholder content"
+    draw.text((70, height - 34), footer, fill=muted, font=small_font)
+    buffer = io.BytesIO()
+    image.save(buffer, format="JPEG", quality=92)
+    return base64.b64encode(buffer.getvalue()).decode("utf-8")
+
+def pwm_binary_available() -> bool:
+    return os.path.exists(PWM_COMMAND) or shutil.which("pwm") is not None
+
+def perplexity_library_available() -> bool:
+    return os.path.exists(PWM_PYTHON) and os.path.exists(PERPLEXITY_TOKEN_FILE)
+
+async def perplexity_web_screenshot(query: str, session_id: str, continue_session: bool):
+    if perplexity_library_available():
+        return await perplexity_library_screenshot(query, session_id, continue_session)
+
+    if not pwm_binary_available():
+        return None
+
+    history = perplexity_sessions.get(session_id, [])
+    effective_query = query
+    if continue_session and history:
+        context_lines = []
+        for turn in history[-PERPLEXITY_SESSION_TURNS:]:
+            context_lines.append(f"User: {turn['query']}")
+            context_lines.append(f"Previous answer: {turn['answer'][:900]}")
+        effective_query = (
+            "Continue the same research session. Use the context below only to preserve continuity, "
+            "then answer the new request with current web search and citations.\n\n"
+            + "\n".join(context_lines)
+            + f"\n\nNew request: {query}"
+        )
+
+    command = [PWM_COMMAND if os.path.exists(PWM_COMMAND) else "pwm", "ask", effective_query, "--json", "--source", "web"]
+    env = os.environ.copy()
+    home = os.path.expanduser("~")
+    env["PATH"] = f"{home}/.local/bin:" + env.get("PATH", "")
+
+    print(f"🚀 [Perplexity] Querying session={session_id} continue={continue_session}: {query}")
+    proc = await asyncio.to_thread(
+        subprocess.run,
+        command,
+        capture_output=True,
+        text=True,
+        timeout=90,
+        env=env,
+        cwd=home,
+    )
+    if proc.returncode != 0:
+        stderr = (proc.stderr or proc.stdout or "").strip()
+        raise RuntimeError(f"pwm failed: {stderr[:300]}")
+
+    data = json.loads(proc.stdout)
+    answer = data.get("answer") or ""
+    citations = data.get("citations") or []
+    routing = data.get("routing") or {}
+    if not answer:
+        return None
+
+    history.append({"query": query, "answer": answer, "citations": citations})
+    perplexity_sessions[session_id] = history[-PERPLEXITY_SESSION_TURNS:]
+    return render_perplexity_result(query, answer, citations, routing, session_id, continue_session), False
+
+async def perplexity_library_screenshot(query: str, session_id: str, continue_session: bool):
+    session = perplexity_sessions.get(session_id) if continue_session else None
+    payload = {
+        "query": query,
+        "session_id": session_id,
+        "backend_uuid": session.get("backend_uuid") if session else None,
+        "read_write_token": session.get("read_write_token") if session else None,
+        "token_file": PERPLEXITY_TOKEN_FILE,
+    }
+    script = r"""
+import json
+import sys
+from pathlib import Path
+from perplexity_web_mcp.core import Perplexity, ConversationConfig
+from perplexity_web_mcp.enums import SourceFocus, SearchFocus, CitationMode
+
+payload = json.loads(sys.stdin.read())
+session_token = Path(payload["token_file"]).read_text().strip()
+client = Perplexity(session_token=session_token)
+conv = client.create_conversation(ConversationConfig(
+    source_focus=SourceFocus.WEB,
+    search_focus=SearchFocus.WEB,
+    citation_mode=CitationMode.CLEAN,
+    save_to_library=False,
+    language="pt-BR",
+    timezone="America/Sao_Paulo",
+))
+if payload.get("backend_uuid") and payload.get("read_write_token"):
+    conv._backend_uuid = payload["backend_uuid"]
+    conv._read_write_token = payload["read_write_token"]
+
+conv.ask(payload["query"])
+search_results = []
+for item in conv.search_results:
+    search_results.append({
+        "title": getattr(item, "title", None),
+        "snippet": getattr(item, "snippet", None),
+        "url": getattr(item, "url", None),
+    })
+
+print(json.dumps({
+    "answer": conv.answer,
+    "search_results": search_results,
+    "backend_uuid": conv._backend_uuid,
+    "read_write_token": conv._read_write_token,
+    "conversation_uuid": conv.uuid,
+}, ensure_ascii=False))
+client.close()
+"""
+    print(f"🚀 [PerplexityLib] Querying session={session_id} continue={continue_session}: {query}")
+    proc = await asyncio.to_thread(
+        subprocess.run,
+        [PWM_PYTHON, "-c", script],
+        input=json.dumps(payload),
+        capture_output=True,
+        text=True,
+        timeout=90,
+        cwd=os.path.expanduser("~"),
+    )
+    if proc.returncode != 0:
+        stderr = (proc.stderr or proc.stdout or "").strip()
+        raise RuntimeError(f"perplexity library failed: {stderr[:300]}")
+
+    data = json.loads(proc.stdout)
+    answer = data.get("answer") or ""
+    results = data.get("search_results") or []
+    citations = [item.get("url") for item in results if item.get("url")]
+    if not answer:
+        return None
+
+    perplexity_sessions[session_id] = {
+        "backend_uuid": data.get("backend_uuid"),
+        "read_write_token": data.get("read_write_token"),
+        "answer": answer,
+        "search_results": results,
+    }
+    return render_perplexity_result(
+        query,
+        answer,
+        citations,
+        {"model_name": "perplexity_web", "search_type": "web"},
+        session_id,
+        continue_session,
+    ), False
+
+class DuckDuckGoHTMLParser(HTMLParser):
+    def __init__(self):
+        super().__init__()
+        self.items = []
+        self._field = None
+        self._text = []
+        self._pending_href = ""
+        self._current_snippet_index = None
+
+    def handle_starttag(self, tag, attrs):
+        attr = dict(attrs)
+        classes = set((attr.get("class") or "").split())
+        if tag == "a" and "result__a" in classes:
+            self._pending_href = self._normalize_href(attr.get("href", ""))
+            self._field = "title"
+            self._text = []
+        elif tag in {"a", "div"} and "result__snippet" in classes and self.items:
+            self._current_snippet_index = len(self.items) - 1
+            self._field = "snippet"
+            self._text = []
+
+    def handle_data(self, data):
+        if self._field:
+            self._text.append(data)
+
+    def handle_endtag(self, tag):
+        if self._field == "title" and tag == "a":
+            title = self._clean_text(" ".join(self._text))
+            if title and self._pending_href and not self._is_ad_link(self._pending_href):
+                self.items.append({"title": title, "link": self._pending_href, "snippet": ""})
+            self._field = None
+            self._text = []
+            self._pending_href = ""
+        elif self._field == "snippet" and tag in {"a", "div"}:
+            snippet = self._clean_text(" ".join(self._text))
+            if snippet and self._current_snippet_index is not None:
+                self.items[self._current_snippet_index]["snippet"] = snippet
+            self._field = None
+            self._text = []
+            self._current_snippet_index = None
+
+    @staticmethod
+    def _clean_text(value: str) -> str:
+        return re.sub(r"\s+", " ", unescape(value)).strip()
+
+    @staticmethod
+    def _normalize_href(href: str) -> str:
+        href = unescape(href or "")
+        if href.startswith("//"):
+            href = "https:" + href
+        parsed = urlparse(href)
+        if parsed.netloc.endswith("duckduckgo.com") and parsed.path.startswith("/l/"):
+            target = parse_qs(parsed.query).get("uddg", [""])[0]
+            return target or href
+        return href
+
+    @staticmethod
+    def _is_ad_link(href: str) -> bool:
+        lowered = href.lower()
+        return any(marker in lowered for marker in ["ad_domain=", "bing.com/aclick", "/y.js"])
+
+async def brave_search_screenshot(query: str):
+    if not BRAVE_SEARCH_API_KEY:
+        return None
+    url = "https://api.search.brave.com/res/v1/web/search"
+    headers = {
+        "Accept": "application/json",
+        "Accept-Encoding": "gzip",
+        "X-Subscription-Token": BRAVE_SEARCH_API_KEY,
+    }
+    params = {
+        "q": query,
+        "count": 8,
+        "country": "BR",
+        "search_lang": "pt-br",
+        "safesearch": "moderate",
+    }
+    async with httpx.AsyncClient(timeout=12) as http:
+        response = await http.get(url, headers=headers, params=params)
+        response.raise_for_status()
+        data = response.json()
+    items = []
+    for result in data.get("web", {}).get("results", [])[:8]:
+        snippets = [result.get("description", "")]
+        snippets.extend(result.get("extra_snippets") or [])
+        items.append({
+            "title": result.get("title"),
+            "link": result.get("url"),
+            "snippet": " ".join(s for s in snippets if s),
+        })
+    return render_search_results(query, "brave_search_api", items), False
+
+async def google_cse_screenshot(query: str):
+    if not GOOGLE_CSE_API_KEY or not GOOGLE_CSE_CX:
+        return None
+    url = "https://www.googleapis.com/customsearch/v1"
+    params = {
+        "key": GOOGLE_CSE_API_KEY,
+        "cx": GOOGLE_CSE_CX,
+        "q": query,
+        "num": 8,
+    }
+    async with httpx.AsyncClient(timeout=12) as http:
+        response = await http.get(url, params=params)
+        response.raise_for_status()
+        data = response.json()
+    items = data.get("items", [])
+    return render_search_results(query, "google_programmable_search", items), False
+
+async def duckduckgo_html_screenshot(query: str):
+    url = "https://html.duckduckgo.com/html/"
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+        "Accept": "text/html,application/xhtml+xml",
+        "Accept-Language": "pt-BR,pt;q=0.9,en;q=0.8",
+    }
+    async with httpx.AsyncClient(timeout=12, follow_redirects=True) as http:
+        response = await http.get(url, params={"q": query, "kl": "br-pt"}, headers=headers)
+        response.raise_for_status()
+        parser = DuckDuckGoHTMLParser()
+        parser.feed(response.text)
+    if not parser.items:
+        return None
+    return render_search_results(query, "duckduckgo_html", parser.items), False
+
+async def web_search_screenshot(query: str, session_id: str = "", continue_session: bool = False):
+    providers = [
+        ("perplexity_web", lambda q: perplexity_web_screenshot(q, session_id, continue_session)),
+        ("google_programmable_search", google_cse_screenshot),
+        ("brave_search_api", brave_search_screenshot),
+        ("duckduckgo_html", duckduckgo_html_screenshot),
+    ]
+    for provider, fn in providers:
+        try:
+            result = await fn(query)
+            if result:
+                print(f"✅ [SearchAPI] {provider} returned real results.")
+                return result
+        except Exception as e:
+            print(f"⚠️ [SearchAPI] {provider} failed: {e}")
+    return None
 
 def load_cookie_file():
     cookie_file = next((p for p in COOKIE_FILE_CANDIDATES if os.path.exists(p) and os.path.getsize(p) > 0), None)
@@ -174,32 +634,34 @@ async def websocket_hud(ws: WebSocket):
                 cmd = data.get("command")
                 query = data.get("query")
                 engine = data.get("engine", "google")
+                session_id = data.get("session_id") or str(uuid.uuid4())[:8]
+                continue_session = bool(data.get("continue_session"))
                 if cmd == "analyze_and_search" and query:
-                    if not await send_ws_json(ws, {"type": "status_update", "message": f"AGENT: RESEARCHING_{engine.upper()}"}):
+                    label = "WEB_SEARCH" if engine in {"google", "web"} else engine.upper()
+                    if not await send_ws_json(ws, {"type": "status_update", "message": f"AGENT: RESEARCHING_{label}"}):
                         break
                     try:
-                        if DEMO_MODE:
-                            img_data, is_blocked = create_demo_screenshot(query, engine, "DEMO_MODE"), False
+                        if engine in {"google", "web"}:
+                            if not await send_ws_json(ws, {"type": "status_update", "message": f"SESSION: {session_id} // {'CONTINUE' if continue_session else 'NEW'}"}):
+                                break
+                            api_result = await web_search_screenshot(query, session_id, continue_session)
+                        else:
+                            api_result = None
+
+                        if api_result:
+                            img_data, is_blocked = api_result
                         else:
                             img_data, is_blocked = await capture_screenshot(engine, query)
-                        if is_blocked and engine == "google":
+
+                        if is_blocked and engine in {"google", "web"}:
                             if not await send_ws_json(ws, {"type": "status_update", "message": "WARN: GOOGLE_BLOCK_DETECTED"}):
                                 break
-                            if not await send_ws_json(ws, {"type": "status_update", "message": "SYS: REROUTING_VIA_GEMINI..."}):
+                            if not await send_ws_json(ws, {"type": "status_update", "message": "SYS: REROUTING_REAL_SEARCH..."}):
                                 break
-                            await asyncio.sleep(2)
-                            img_data, _ = await capture_screenshot("gemini", query)
-                            if _ and DEMO_FALLBACK:
-                                if not await send_ws_json(ws, {"type": "status_update", "message": "SYS: DEMO_FALLBACK_ACTIVE"}):
-                                    break
-                                img_data = create_demo_screenshot(query, "gemini", "VERIFICATION_REQUIRED")
+                            img_data, is_blocked = await capture_screenshot("yahoo", query)
                         elif is_blocked:
                             if not await send_ws_json(ws, {"type": "status_update", "message": "WARN: VERIFICATION_REQUIRED"}):
                                 break
-                            if DEMO_FALLBACK:
-                                if not await send_ws_json(ws, {"type": "status_update", "message": "SYS: DEMO_FALLBACK_ACTIVE"}):
-                                    break
-                                img_data = create_demo_screenshot(query, engine, "VERIFICATION_REQUIRED")
                         if not await send_ws_json(ws, {"type": "browser_screenshot", "data": img_data}):
                             break
                     except Exception as e:
@@ -208,6 +670,7 @@ async def websocket_hud(ws: WebSocket):
                             break
                 elif cmd == "close_browser":
                     cognitive_memory = []
+                    perplexity_sessions.clear()
                     if not await send_ws_json(ws, {"type": "status_update", "message": "SYSTEM_CORE: MEMORY_PURGED"}):
                         break
     except WebSocketDisconnect:
@@ -252,12 +715,7 @@ async def capture_screenshot(engine: str, query: str):
     from playwright_stealth import Stealth
     import urllib.parse
     quoted = urllib.parse.quote(query)
-    user_data_dir = os.path.expanduser("~/.playwright_data")
-
-    # Google e DuckDuckGo estão bloqueados neste IP da AWS. Redirecionar para Yahoo Search.
-    if engine == "google" or engine == "duckduckgo":
-        print(f"🔀 [Router] Engine blocked on AWS IP. Redirecting to Yahoo Search.")
-        engine = "yahoo"
+    user_data_dir = PLAYWRIGHT_USER_DATA_DIR
 
     async with async_playwright() as p:
         stealth_params = {
@@ -274,22 +732,19 @@ async def capture_screenshot(engine: str, query: str):
             "--disable-blink-features=AutomationControlled",
         ]
 
+        proxy = load_proxy_config() if engine in ["google", "web"] else None
         print(f"🚀 [Browser] Starting {engine.upper()} search for: {query}")
-        try:
-            if engine in ["gemini", "chatgpt", "perplexity"]:
-                browser_context = await p.chromium.launch_persistent_context(
-                    user_data_dir, headless=True, args=chromium_args, **stealth_params
-                )
-            else:
-                browser = await p.chromium.launch(headless=True, args=chromium_args)
-                browser_context = await browser.new_context(**stealth_params)
-        except Exception as e:
-            print(f"❌ [Browser] Launch FAILED: {e}")
-            return create_demo_screenshot(query, engine, "LAUNCH_ERROR"), False
+        if engine in ["google", "web", "gemini", "chatgpt", "perplexity"]:
+            browser_context = await p.chromium.launch_persistent_context(
+                user_data_dir, headless=True, args=chromium_args, proxy=proxy, **stealth_params
+            )
+        else:
+            browser = await p.chromium.launch(headless=True, args=chromium_args, proxy=proxy)
+            browser_context = await browser.new_context(**stealth_params)
 
         try:
             page = browser_context.pages[0] if browser_context.pages else await browser_context.new_page()
-            if engine in ["gemini", "chatgpt", "perplexity"]:
+            if engine in ["google", "web", "gemini", "chatgpt", "perplexity"]:
                 await apply_user_cookies(browser_context)
             await Stealth().apply_stealth_async(page)
 
@@ -299,24 +754,16 @@ async def capture_screenshot(engine: str, query: str):
             if engine == "gemini": target_url = "https://gemini.google.com/app"
             elif engine == "chatgpt": target_url = "https://chatgpt.com/"
             elif engine == "perplexity": target_url = f"https://www.perplexity.ai/search?q={quoted}"
-            else: target_url = f"https://search.yahoo.com/search?p={quoted}"
+            elif engine == "duckduckgo": target_url = f"https://duckduckgo.com/html/?q={quoted}"
+            elif engine == "yahoo": target_url = f"https://search.yahoo.com/search?p={quoted}"
+            else: target_url = f"https://www.google.com/search?q={quoted}&hl=pt-BR"
 
             print(f"🔎 [Browser] Navigating to {target_url}...")
             try:
-                await page.goto(target_url, wait_until="domcontentloaded", timeout=20000)
+                await page.goto(target_url, wait_until="domcontentloaded", timeout=50000)
                 print(f"✅ [Browser] Page loaded.")
             except Exception as e:
-                print(f"⚠️ [Nav] Timeout: {e}. Returning fallback.")
-                return create_demo_screenshot(query, engine, "NAV_TIMEOUT"), False
-
-            try:
-                content = await page.content()
-                if page_has_bot_check(content, page.url):
-                    print(f"⚠️ [Security] Bot check on {engine.upper()}.")
-                    return create_demo_screenshot(query, engine, "BOT_BLOCKED"), False
-            except Exception as e:
-                print(f"⚠️ [Content] Read failed: {e}")
-                return create_demo_screenshot(query, engine, "CONTENT_ERROR"), False
+                print(f"⚠️ [Nav] Timeout or error during load: {e}. Capturing current page.")
 
             if engine == "gemini":
                 try:

@@ -36,7 +36,7 @@
                 color: #fff; padding: 15px; font-family: inherit; width: 100%; outline: none; font-size: 0.9em; text-align: center;
                 transition: 0.3s; box-shadow: 0 0 15px rgba(0, 242, 255, 0.2);
             }
-            #eng-google.active { 
+            #eng-web.active {
                 background: rgba(0, 242, 255, 0.2); 
                 border: 2px solid var(--text-color);
                 box-shadow: 0 0 25px rgba(0, 242, 255, 0.5);
@@ -91,7 +91,7 @@
             </div>
             <div id="control-panel">
                 <div class="engine-bar">
-                    <button class="eng-btn active" id="eng-google" onclick="setEngine('google')">GOOGLE</button>
+                    <button class="eng-btn active" id="eng-web" onclick="setEngine('web')">WEB SEARCH</button>
                     <button class="eng-btn" id="eng-perplexity" onclick="setEngine('perplexity')">PERPLEXITY</button>
                     <button class="eng-btn" id="eng-gemini" onclick="setEngine('gemini')">GEMINI</button>
                     <button class="eng-btn" id="eng-chatgpt" onclick="setEngine('chatgpt')">CHATGPT</button>
@@ -103,11 +103,13 @@
                     <button class="cmd-btn" id="audio-btn" onclick="toggleTTS()" title="Toggle voice output">AUDIO: ON</button>
                     <button class="cmd-btn" id="gesture-toggle-btn" onclick="toggleGestures()" title="Manual prevents gestures from launching actions automatically" style="border-right-color:var(--accent-color);color:var(--accent-color)">GESTURES: MANUAL</button>
                 </div>
+                <button class="cmd-btn" id="session-btn" onclick="toggleSearchSession()" title="Continue Perplexity context across searches">SESSION: CONTINUE</button>
 
                 <button class="cmd-btn" id="mic-btn" onclick="toggleMic()" title="Enable spoken commands">VOICE_INPUT: OFF</button>
                 <button class="cmd-btn special" id="vision-btn" onclick="toggleVision()" title="Camera stays in browser except captured analysis frames">ACTIVATE CAMERA</button>
                 <button class="cmd-btn" id="scan-btn" onclick="runAnalyze(false)" title="Analyze the current camera frame">ENVIRONMENT SCAN</button>
-                <button class="cmd-btn" onclick="runDemoScan()" title="Use when camera permission or hardware is unavailable">NO-CAMERA DEMO</button>
+                <button class="cmd-btn special" onclick="runAnalyze(true)" title="Analyze the current frame and search the suggested target">SCAN + RESEARCH</button>
+                <button class="cmd-btn" onclick="focusTargetField()" title="Enter a real search target manually">MANUAL TARGET</button>
                 <button class="cmd-btn special" onclick="sendCommand('analyze_and_search')" title="Run browser research for the target field">EXECUTE RESEARCH</button>
                 <button class="cmd-btn warn" onclick="sendCommand('close_browser')" title="Clear session memory and close active feed">SHUTDOWN SYSTEM</button>
             </div>
@@ -124,14 +126,23 @@
             const mouseCursor = document.getElementById('custom-mouse');
             document.addEventListener('mousemove', (e) => { mouseCursor.style.left = e.clientX + 'px'; mouseCursor.style.top = e.clientY + 'px'; });
 
-            let lastSuggestedQuery = "", currentEngine = "google", isMicActive = false, isScanning = false, lastXTriggerTime = 0, actionHoldTime = 0, isTTSActive = true, voices = [], isGesturesAuto = false;
+            let lastSuggestedQuery = "", currentEngine = "web", searchSessionId = crypto.randomUUID().slice(0, 8), continueSearchSession = true, isMicActive = false, isScanning = false, lastXTriggerTime = 0, lastThumbsUpTriggerTime = 0, actionHoldTime = 0, isTTSActive = true, voices = [], isGesturesAuto = false;
             const HOLD_THRESHOLD = 1500;
+            const THUMB_SCAN_COOLDOWN = 4500;
 
             function toggleGestures() {
                 isGesturesAuto = !isGesturesAuto;
                 const btn = document.getElementById('gesture-toggle-btn');
                 btn.innerText = isGesturesAuto ? "GESTURES: AUTO" : "GESTURES: MANUAL";
                 addLog(isGesturesAuto ? "GESTURE ENGINE: FULL AUTO" : "GESTURE ENGINE: MANUAL OVERRIDE", "system");
+            }
+
+            function toggleSearchSession() {
+                continueSearchSession = !continueSearchSession;
+                if (!continueSearchSession) searchSessionId = crypto.randomUUID().slice(0, 8);
+                const btn = document.getElementById('session-btn');
+                btn.innerText = continueSearchSession ? "SESSION: CONTINUE" : "SESSION: NEW";
+                addLog(continueSearchSession ? `PERPLEXITY SESSION: CONTINUE ${searchSessionId}` : `PERPLEXITY SESSION: NEW ${searchSessionId}`, "system");
             }
 
             const scene = new THREE.Scene();
@@ -254,6 +265,10 @@
 
             async function startVision() {
                 if (!handLandmarker) await preloadModels();
+                if (!handLandmarker) {
+                    addLog("VISION MODEL UNAVAILABLE", "warn");
+                    return false;
+                }
                 isVisionActive = true;
                 if (!videoElement) { videoElement = document.createElement("video"); videoElement.setAttribute("playsinline", ""); videoElement.style.display = "none"; document.body.appendChild(videoElement); }
                 try {
@@ -266,12 +281,13 @@
                         if (sLabel) sLabel.innerText = "STATUS: TRACKING_LIVE";
                         connectVisionWS(); requestAnimationFrame(predictWebcam);
                     };
+                    return true;
                 } catch (e) {
                     addLog("SENSOR ERROR: CAMERA UNAVAILABLE", "warn");
-                    addLog("NO-CAMERA DEMO READY", "system");
                     isVisionActive = false;
                     const vBtn = document.getElementById('vision-btn');
                     if (vBtn) { vBtn.innerText = "CAMERA BLOCKED"; vBtn.classList.remove('active'); }
+                    return false;
                 }
             }
 
@@ -300,7 +316,10 @@
                         const gestureData = { type: "gesture", x: mainHand[8].x, y: mainHand[8].y, gesture: "open" };
                         const dPinch = Math.hypot(mainHand[4].x - mainHand[8].x, mainHand[4].y - mainHand[8].y);
                         const isVictory = mainHand[8].y < mainHand[6].y && mainHand[12].y < mainHand[10].y && mainHand[16].y > mainHand[14].y;
-                        const isThumbsUp = mainHand[4].y < mainHand[3].y && mainHand[4].y < mainHand[8].y - 0.1 && mainHand[8].y > mainHand[6].y;
+                        const foldedFingers = [8, 12, 16, 20].filter(i => mainHand[i].y > mainHand[i - 2].y - 0.02).length;
+                        const thumbAbovePalm = mainHand[4].y < mainHand[2].y - 0.05;
+                        const thumbAboveFingers = mainHand[4].y < Math.min(mainHand[8].y, mainHand[12].y, mainHand[16].y, mainHand[20].y) - 0.03;
+                        const isThumbsUp = thumbAbovePalm && thumbAboveFingers && foldedFingers >= 3;
                         let isCrossedX = false;
                         if (results.landmarks.length === 2) {
                             const hand2 = results.landmarks[1];
@@ -315,9 +334,14 @@
                         else if (isVictory) gestureData.gesture = "victory";
                         else if (isThumbsUp) gestureData.gesture = "thumbs_up";
 
+                        if (gestureData.gesture === "thumbs_up" && !isScanning && nowInMs - lastThumbsUpTriggerTime > THUMB_SCAN_COOLDOWN) {
+                            lastThumbsUpTriggerTime = nowInMs;
+                            addLog("GESTURE_CMD: THUMBS_UP_SCAN", "system");
+                            runAnalyze(false);
+                        }
+
                         if (isGesturesAuto) {
-                            if (gestureData.gesture === "thumbs_up" && !isScanning) runAnalyze(false);
-                            else if (gestureData.gesture === "pinch" && lastSuggestedQuery && !isScanning) confirmResearch();
+                            if (gestureData.gesture === "pinch" && lastSuggestedQuery && !isScanning) confirmResearch();
                         }
 
                         if (gestureData.gesture === "victory" && !isScanning) {
@@ -391,11 +415,20 @@
             }
 
             async function runAnalyze(autoSearch = false) {
-                if (isScanning || !isVisionActive || !videoElement) return;
+                if (isScanning) return;
+                if (!isVisionActive || !videoElement) {
+                    const started = await startVision();
+                    if (!started) {
+                        addLog("SCAN ABORTED: CAMERA REQUIRED", "warn");
+                        return;
+                    }
+                    await new Promise(resolve => setTimeout(resolve, 600));
+                }
                 isScanning = true; addLog("ANALYZING ENVIRONMENT...", "system");
                 try {
                     const canvas = document.createElement("canvas");
                     canvas.width = videoElement.videoWidth; canvas.height = videoElement.videoHeight;
+                    if (!canvas.width || !canvas.height) throw new Error("EMPTY_CAMERA_FRAME");
                     canvas.getContext("2d").drawImage(videoElement, 0, 0);
                     const imgB64 = canvas.toDataURL("image/jpeg", 0.7).split(",")[1];
                     const res = await fetch("/analyze", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ image: imgB64 }) });
@@ -405,24 +438,47 @@
                         else {
                             addLog(`RESULT: ${cleanTacticalText(data.text)}`, "#fff");
                             speak(data.text);
-                            if (data.suggested_query) { lastSuggestedQuery = data.suggested_query; addLog(`[SAY 'YES' OR PINCH TO EXECUTE]`, "prompt"); }
+                            if (data.suggested_query) {
+                                lastSuggestedQuery = data.suggested_query;
+                                document.getElementById("search-box").value = lastSuggestedQuery;
+                                addLog(`[SAY 'YES' OR PINCH TO EXECUTE]`, "prompt");
+                                addLog(`SUGGESTION: ${lastSuggestedQuery.toUpperCase()}`, "system");
+                                if (autoSearch) {
+                                    setTimeout(() => sendCommand("analyze_and_search"), 500);
+                                }
+                            } else if (autoSearch) {
+                                setTimeout(() => sendCommand("analyze_and_search"), 500);
+                            }
                         }
                     }
-                } catch (err) { addLog("SCAN FAILED", "warn"); }
+                } catch (err) {
+                    addLog("SCAN FAILED", "warn");
+                }
                 setTimeout(() => { isScanning = false; }, 5000);
             }
 
-            function runDemoScan() {
-                lastSuggestedQuery = "Hack Club project review AI vision dashboard";
-                document.getElementById("search-box").value = lastSuggestedQuery;
-                addLog("DEMO_SCAN: CAMERA OPTIONAL", "system");
-                addLog("SUGGESTION: HACK CLUB PROJECT REVIEW AI VISION DASHBOARD", "system");
+            function focusTargetField() {
+                document.getElementById("search-box").focus();
+                addLog("MANUAL TARGET READY", "system");
             }
 
             function hideBrowser() { document.getElementById('browser-view').style.display = 'none'; }
             function showBrowser(base64Data) { addLog("FEED ONLINE", "system"); document.getElementById('browser-content').src = `data:image/jpeg;base64,${base64Data}`; document.getElementById('browser-view').style.display = 'flex'; document.getElementById('browser-container').scrollTop = 0; }
-            function sendCommand(cmd) { const q = document.getElementById("search-box").value; if (ws?.readyState === 1) { if (cmd === "analyze_and_search") ws.send(JSON.stringify({ type: "command", command: "analyze_and_search", query: q || lastSuggestedQuery, engine: currentEngine })); else ws.send(JSON.stringify({ type: "command", command: cmd })); } }
-            function setEngine(eng) { currentEngine = eng; document.querySelectorAll('.eng-btn').forEach(btn => btn.classList.remove('active')); document.getElementById(`eng-${eng}`).classList.add('active'); addLog(`TARGET SYNCED: ${eng.toUpperCase()}`, "system"); }
+            function sendCommand(cmd) {
+                const q = document.getElementById("search-box").value.trim();
+                if (cmd === "analyze_and_search" && !(q || lastSuggestedQuery)) {
+                    addLog("NO TARGET: RUNNING SCAN FIRST", "system");
+                    runAnalyze(true);
+                    return;
+                }
+                if (ws?.readyState === 1) {
+                    if (cmd === "analyze_and_search") ws.send(JSON.stringify({ type: "command", command: "analyze_and_search", query: q || lastSuggestedQuery, engine: currentEngine, session_id: searchSessionId, continue_session: continueSearchSession }));
+                    else ws.send(JSON.stringify({ type: "command", command: cmd }));
+                } else {
+                    addLog("WEBSOCKET OFFLINE", "warn");
+                }
+            }
+            function setEngine(eng) { currentEngine = eng; document.querySelectorAll('.eng-btn').forEach(btn => btn.classList.remove('active')); document.getElementById(`eng-${eng}`).classList.add('active'); addLog(`TARGET SYNCED: ${(eng === "web" ? "WEB SEARCH" : eng).toUpperCase()}`, "system"); }
             function cleanTacticalText(t) { return t ? t.replace(/[\*#\-_\[\]\(\)>]/g, "").replace(/\s+/g, " ").toUpperCase() : ""; }
             function animate() { requestAnimationFrame(animate); stars.rotation.y += 0.001; stars.rotation.x += 0.0005; r1.rotation.z += 0.025; r2.rotation.y += 0.05; r3.rotation.z -= 0.015; renderer.render(scene, camera); }
             connect(); animate();

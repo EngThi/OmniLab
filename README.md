@@ -1,13 +1,64 @@
-# OmniLab: Tactical AI Command HUD
+# OmniLab: Visual Research HUD
 
-OmniLab is a technical command interface integrating real-time computer vision, Large Language Models (LLMs), and autonomous browser agents into a unified 3D Heads-Up Display (HUD). 
+OmniLab is a browser-based command HUD for turning a live camera view into useful research. It combines local hand tracking, Gemini visual analysis, voice/gesture controls, and Perplexity-powered web research in a single Three.js interface.
+
+The main workflow is:
+
+1. Open the deployed HUD.
+2. Activate the camera.
+3. Run an environment scan or hold a thumbs-up gesture.
+4. Gemini analyzes the current frame and suggests a search target.
+5. Say "yes", say "search", pinch, or press **EXECUTE RESEARCH**.
+6. OmniLab sends the query to Perplexity Search and renders a visual answer with sources.
+
+## What It Is Useful For
+
+OmniLab is not a static demo page. It is built around real workflows that are useful when your hands or attention are busy:
+
+*   **Visual research:** Point the camera at an object, text, hardware, a book, or a setup, then search what it is or what to do next.
+*   **Troubleshooting:** Scan an error screen, device, wiring setup, or tool and turn the visual context into a focused web query.
+*   **Source-backed answers:** Manual search and scan-generated search both return Perplexity answers with citations instead of placeholder browser images.
+*   **Session continuity:** Follow-up searches can continue the same Perplexity conversation, so "what is this?" can become "how do I fix it?" without losing context.
+*   **Hands-light operation:** Thumbs-up scans the environment, pinch confirms suggested research, and voice commands can trigger scan/search/purge.
 
 ## Data Handling and Security
-This system is designed with a volatile memory architecture to ensure user data integrity:
-*   **Volatile Storage:** All video frames and search metadata are processed in real-time RAM. No data is persisted to disk or external databases.
-*   **Session Termination:** Activating the **System Purge** command or closing the application immediately clears all active browser contexts and cognitive memory stacks.
-*   **Local Tracking:** Gesture tracking is performed locally via MediaPipe, and visual context is analyzed through the Gemini API via encrypted SSL/TLS uplinks.
-*   **Review Fallback:** If a third-party site requires CAPTCHA or human verification, OmniLab stops automation and shows a local demo intel stream so reviewers can test the HUD without cookies or bypass tooling.
+
+OmniLab handles camera and search data deliberately. There is no database and no analytics pipeline in this project.
+
+| Data | Where It Is Processed | Persistence |
+| --- | --- | --- |
+| Hand landmarks | Browser, through MediaPipe Tasks for Web | Not stored |
+| Camera frame for scan | One JPEG frame is sent to the FastAPI backend, then to Gemini for analysis | Not written to disk |
+| Suggested search query | Backend RAM and browser UI state | Cleared on purge/reload |
+| Perplexity conversation UUID/read-write token | Backend RAM for the active OmniLab session | Cleared by **SHUTDOWN SYSTEM** or service restart |
+| Perplexity account token/API keys | Server environment/config files | Required secret for production search |
+| Optional Playwright cookies/profile | Server filesystem, only if configured by the deployer | Used only for authorized browser-session fallback |
+
+Security behavior:
+
+*   **No camera recording:** The app captures only the current frame when a scan is requested.
+*   **No project database:** Frames, gesture data, search queries, and answers are not saved to a DB.
+*   **Purge clears runtime memory:** **SHUTDOWN SYSTEM** clears Gemini context and Perplexity session state held in backend RAM.
+*   **Real providers only:** Search uses Perplexity first, then configured search APIs/fallback providers. It does not fabricate demo results.
+*   **Transparent fallback:** If a browser provider requires verification, OmniLab reports that state or reroutes to another real provider instead of hiding it behind fake content.
+*   **Secrets stay server-side:** Perplexity tokens, Gemini keys, Brave keys, cookies, and proxy credentials are never sent to the browser.
+
+## Reviewer Test Path
+
+Fastest way to test the real functionality:
+
+1. Press **ACTIVATE CAMERA** and grant camera permission.
+2. Show an object, printed text, screen, or hardware setup to the camera.
+3. Press **ENVIRONMENT SCAN** or use thumbs-up.
+4. Wait for the suggested query to appear in the target field.
+5. Press **EXECUTE RESEARCH** or say "yes/search".
+6. Confirm that the HUD opens a visual Perplexity answer with sources.
+
+Manual fallback path:
+
+1. Type any real query in **TARGET_IDENTIFIER**.
+2. Press **EXECUTE RESEARCH**.
+3. The HUD should open a source-backed answer without needing camera access.
 
 ## Interface Protocols
 
@@ -25,10 +76,21 @@ This system is designed with a volatile memory architecture to ensure user data 
 *   **"Terminate":** Emergency system shutdown.
 
 ## Core Architecture
-*   **Intelligence Engine:** Gemini 3.1 for tactical heuristics.
-*   **Visual Framework:** Three.js for 3D UI rendering.
-*   **Automation:** Playwright with stealth configurations for autonomous research.
-*   **Tracking:** MediaPipe for low-latency spatial interaction.
+*   **Vision analysis:** Gemini analyzes explicit scan frames and returns a short tactical summary plus `[search: term]`.
+*   **Web research:** Perplexity Web MCP is the primary search engine and returns real answers with sources.
+*   **Fallback search:** Google Programmable Search, Brave Search, DuckDuckGo HTML, Yahoo/browser fallback, depending on configured keys and provider availability.
+*   **Visual framework:** Three.js renders the HUD and MediaPipe Tasks for Web tracks hands locally in the browser.
+*   **Backend:** FastAPI WebSockets coordinate HUD events, scan analysis, search sessions, and screenshot/result rendering.
+
+## Current Boundaries
+
+These are intentional constraints, not hidden demo behavior:
+
+*   Camera permission is required for environment scans. Manual research works without camera access.
+*   Perplexity/LLM/search providers require valid server-side credentials and may consume quota.
+*   Browser automation is kept as fallback because datacenter IPs can trigger Google/Cloudflare verification.
+*   The app does not click through arbitrary third-party websites on behalf of the user; it returns research answers and source links.
+*   Voice recognition uses the browser's Web Speech API, so support depends on the reviewer's browser.
 
 ## Deployment
 
@@ -47,21 +109,28 @@ echo "GEMINI_API_KEY=your_key" > .env
 python server.py
 ```
 
-### Demo Review Mode
-```bash
-DEMO_MODE=true python server.py
-```
-
-`DEMO_MODE=true` uses a local generated browser result so community reviewers can validate the WebSocket flow, camera controls, gestures, voice commands, and browser panel without relying on third-party cookies. By default, `DEMO_FALLBACK=true` also activates that local result when a search provider asks for human verification.
-
 ### Optional Session Cookies
 ```bash
 COOKIE_FILE=/home/ubuntu/arq.json python server.py
 ```
 
-Cookies are loaded only as an authorized user session restore for Playwright. Empty or invalid cookie files are ignored, and CAPTCHA or human verification pages still stop automation and trigger the demo fallback.
+Cookies are loaded only as an authorized user session restore for Playwright. The backend also reuses `PLAYWRIGHT_USER_DATA_DIR` as the persistent Chromium profile, so a VM can preserve an already-authorized search/account session. Empty or invalid cookie files are ignored.
+
+### Optional Search Providers
+```bash
+GOOGLE_CSE_API_KEY=your_key
+GOOGLE_CSE_CX=your_search_engine_id
+BRAVE_SEARCH_API_KEY=your_brave_search_key
+PWM_COMMAND=/home/ubuntu/.local/bin/pwm
+PWM_PYTHON=/home/ubuntu/.local/share/pipx/venvs/perplexity-web-mcp-cli/bin/python
+PERPLEXITY_TOKEN_FILE=/home/ubuntu/.config/perplexity-web-mcp/token
+PERPLEXITY_SESSION_TURNS=4
+SEARCH_PROXY_FILE=/home/ubuntu/webshare_proxies.txt
+```
+
+For `WEB SEARCH`, OmniLab tries an authenticated Perplexity Web MCP library session first and renders the answer plus citations into the HUD. If that fails, it tries configured official search APIs, then DuckDuckGo HTML results without a key, then real browser search. The frontend can continue the same Perplexity conversation by preserving the backend UUID and read/write token for the OmniLab session, including searches generated from camera scans.
 
 ---
 
-**Status:** Operational // **Security:** Verified
+**Status:** Operational // **Mode:** Real search, no demo fallback
 **Developer:** EngThi / OmniLab Core
