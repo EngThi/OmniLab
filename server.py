@@ -9,9 +9,11 @@ import io
 import subprocess
 import shutil
 import uuid
+import hashlib
+import time
 from html.parser import HTMLParser
 from html import unescape
-from urllib.parse import urlparse, parse_qs
+from urllib.parse import urlparse, parse_qs, urlunparse
 import httpx
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, Response
@@ -37,6 +39,8 @@ PWM_COMMAND = os.path.expanduser(os.getenv("PWM_COMMAND", "/home/ubuntu/.local/b
 PWM_PYTHON = os.path.expanduser(os.getenv("PWM_PYTHON", "/home/ubuntu/.local/share/pipx/venvs/perplexity-web-mcp-cli/bin/python"))
 PERPLEXITY_TOKEN_FILE = os.path.expanduser(os.getenv("PERPLEXITY_TOKEN_FILE", "~/.config/perplexity-web-mcp/token"))
 PERPLEXITY_SESSION_TURNS = int(os.getenv("PERPLEXITY_SESSION_TURNS", "4"))
+WATCH_INTERVAL_SECONDS = int(os.getenv("WATCH_INTERVAL_SECONDS", "45"))
+WATCH_TIMEOUT_SECONDS = int(os.getenv("WATCH_TIMEOUT_SECONDS", "12"))
 COOKIE_FILE_CANDIDATES = [
     COOKIE_FILE,
     os.path.expanduser("~/arq.json"),
@@ -77,6 +81,7 @@ async def root_head(): return Response(status_code=200)
 cognitive_memory = []
 hud_connections: set[WebSocket] = set()
 perplexity_sessions = {}
+watch_tasks: dict[WebSocket, asyncio.Task] = {}
 
 class AnalyzeRequest(BaseModel):
     image: str
@@ -91,6 +96,94 @@ async def send_ws_json(ws: WebSocket, payload: dict) -> bool:
 def page_has_bot_check(content: str, url: str) -> bool:
     haystack = f"{url}\n{content}".lower()
     return any(pattern in haystack for pattern in BOT_CHECK_PATTERNS)
+
+def normalize_watch_target(raw_target: str) -> str:
+    target = (raw_target or "").strip()
+    if not target:
+        raise ValueError("missing watch target")
+    if not re.match(r"^https?://", target, re.I):
+        target = "https://" + target
+    parsed = urlparse(target)
+    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+        raise ValueError("watch target must be a valid http(s) URL")
+    return urlunparse((parsed.scheme, parsed.netloc, parsed.path or "/", parsed.params, parsed.query, ""))
+
+def extract_page_title(html: str) -> str:
+    match = re.search(r"<title[^>]*>(.*?)</title>", html, re.I | re.S)
+    if not match:
+        return ""
+    return re.sub(r"\s+", " ", unescape(match.group(1))).strip()[:140]
+
+def summarize_change(previous: dict | None, current: dict) -> str:
+    if not previous:
+        return "BASELINE_CAPTURED"
+    changes = []
+    if previous.get("status_code") != current.get("status_code"):
+        changes.append(f"STATUS {previous.get('status_code')}->{current.get('status_code')}")
+    if previous.get("title") != current.get("title") and current.get("title"):
+        changes.append("TITLE_CHANGED")
+    if previous.get("content_hash") != current.get("content_hash"):
+        delta = current.get("content_length", 0) - previous.get("content_length", 0)
+        changes.append(f"CONTENT_CHANGED ({delta:+d} bytes)")
+    return " // ".join(changes) if changes else "NO_CHANGE"
+
+async def fetch_watch_snapshot(target: str) -> dict:
+    headers = {
+        "User-Agent": "OmniLab-Watchtower/1.0 (+https://github.com/EngThi/OmniLab)",
+        "Accept": "text/html,application/xhtml+xml,application/json,text/plain;q=0.9,*/*;q=0.8",
+    }
+    started = time.perf_counter()
+    async with httpx.AsyncClient(timeout=WATCH_TIMEOUT_SECONDS, follow_redirects=True) as http:
+        response = await http.get(target, headers=headers)
+    elapsed_ms = int((time.perf_counter() - started) * 1000)
+    text = response.text[:1_000_000]
+    normalized_text = re.sub(r"\s+", " ", text).strip()
+    return {
+        "url": str(response.url),
+        "status_code": response.status_code,
+        "ok": 200 <= response.status_code < 400,
+        "elapsed_ms": elapsed_ms,
+        "title": extract_page_title(text),
+        "content_length": len(response.content),
+        "content_hash": hashlib.sha256(normalized_text.encode("utf-8", errors="ignore")).hexdigest()[:16],
+        "checked_at": int(time.time()),
+    }
+
+async def watch_target_loop(ws: WebSocket, target: str):
+    previous = None
+    await send_ws_json(ws, {"type": "watch_update", "status": "started", "target": target, "message": f"WATCHING {target}"})
+    while True:
+        try:
+            current = await fetch_watch_snapshot(target)
+            summary = summarize_change(previous, current)
+            current["change"] = summary
+            current["target"] = target
+            current["status"] = "changed" if previous and summary != "NO_CHANGE" else "ok"
+            if not await send_ws_json(ws, {"type": "watch_update", **current}):
+                return
+            previous = current
+        except asyncio.CancelledError:
+            raise
+        except Exception as e:
+            if not await send_ws_json(ws, {
+                "type": "watch_update",
+                "status": "error",
+                "target": target,
+                "message": str(e)[:180],
+                "checked_at": int(time.time()),
+            }):
+                return
+        await asyncio.sleep(WATCH_INTERVAL_SECONDS)
+
+async def stop_watch(ws: WebSocket, reason: str = "STOPPED"):
+    task = watch_tasks.pop(ws, None)
+    if task:
+        task.cancel()
+        try:
+            await task
+        except asyncio.CancelledError:
+            pass
+        await send_ws_json(ws, {"type": "watch_update", "status": "stopped", "message": reason})
 
 def load_proxy_config():
     if not SEARCH_PROXY_FILE or not os.path.exists(SEARCH_PROXY_FILE):
@@ -668,14 +761,29 @@ async def websocket_hud(ws: WebSocket):
                         print(f"❌ [Error] Research failed: {e}")
                         if not await send_ws_json(ws, {"type": "status_update", "message": f"ERROR: {str(e)[:100]}"}):
                             break
+                elif cmd == "start_watch" and query:
+                    try:
+                        target = normalize_watch_target(query)
+                    except Exception as e:
+                        if not await send_ws_json(ws, {"type": "status_update", "message": f"WATCH_ERROR: {str(e)[:80]}"}):
+                            break
+                        continue
+                    await stop_watch(ws, "WATCH_REPLACED")
+                    watch_tasks[ws] = asyncio.create_task(watch_target_loop(ws, target))
+                    if not await send_ws_json(ws, {"type": "status_update", "message": f"WATCHTOWER: ACTIVE {target}"}):
+                        break
+                elif cmd == "stop_watch":
+                    await stop_watch(ws, "WATCHTOWER: STOPPED")
                 elif cmd == "close_browser":
                     cognitive_memory = []
                     perplexity_sessions.clear()
+                    await stop_watch(ws, "WATCHTOWER: PURGED")
                     if not await send_ws_json(ws, {"type": "status_update", "message": "SYSTEM_CORE: MEMORY_PURGED"}):
                         break
     except WebSocketDisconnect:
         hud_connections.discard(ws)
     finally:
+        await stop_watch(ws, "WATCHTOWER: DISCONNECTED")
         hud_connections.discard(ws)
 
 @app.websocket("/ws/vision")

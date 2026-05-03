@@ -109,6 +109,8 @@
                 <button class="cmd-btn special" id="vision-btn" onclick="toggleVision()" title="Camera stays in browser except captured analysis frames">ACTIVATE CAMERA</button>
                 <button class="cmd-btn" id="scan-btn" onclick="runAnalyze(false)" title="Analyze the current camera frame">ENVIRONMENT SCAN</button>
                 <button class="cmd-btn special" onclick="runAnalyze(true)" title="Analyze the current frame and search the suggested target">SCAN + RESEARCH</button>
+                <button class="cmd-btn special" id="watch-btn" onclick="startWatch()" title="Continuously monitor the target URL for status/content changes">WATCH TARGET</button>
+                <button class="cmd-btn" onclick="stopWatch()" title="Stop active Watchtower monitoring">STOP WATCH</button>
                 <button class="cmd-btn" onclick="focusTargetField()" title="Enter a real search target manually">MANUAL TARGET</button>
                 <button class="cmd-btn special" onclick="sendCommand('analyze_and_search')" title="Run browser research for the target field">EXECUTE RESEARCH</button>
                 <button class="cmd-btn warn" onclick="sendCommand('close_browser')" title="Clear session memory and close active feed">SHUTDOWN SYSTEM</button>
@@ -404,6 +406,8 @@
                         if (data.message.includes("PURGED")) { hideBrowser(); lastSuggestedQuery = ""; }
                     } else if (data.type === 'browser_screenshot') {
                         showBrowser(data.data);
+                    } else if (data.type === 'watch_update') {
+                        handleWatchUpdate(data);
                     } else if (data.text) {
                         const cleanText = cleanTacticalText(data.text);
                         addLog(`INTEL: ${cleanText}`, '#fff');
@@ -460,6 +464,50 @@
             function focusTargetField() {
                 document.getElementById("search-box").focus();
                 addLog("MANUAL TARGET READY", "system");
+            }
+
+            function startWatch() {
+                const input = document.getElementById("search-box");
+                const target = input.value.trim();
+                if (!target) {
+                    addLog("WATCH TARGET REQUIRED", "warn");
+                    input.focus();
+                    return;
+                }
+                if (ws?.readyState === 1) {
+                    ws.send(JSON.stringify({ type: "command", command: "start_watch", query: target }));
+                    addLog(`WATCHTOWER ARMING: ${target.toUpperCase()}`, "system");
+                } else {
+                    addLog("WEBSOCKET OFFLINE", "warn");
+                }
+            }
+
+            function stopWatch() {
+                if (ws?.readyState === 1) {
+                    ws.send(JSON.stringify({ type: "command", command: "stop_watch" }));
+                } else {
+                    addLog("WEBSOCKET OFFLINE", "warn");
+                }
+            }
+
+            function handleWatchUpdate(data) {
+                if (data.status === "started") {
+                    addLog(data.message || "WATCHTOWER STARTED", "system");
+                    return;
+                }
+                if (data.status === "stopped") {
+                    addLog(data.message || "WATCHTOWER STOPPED", "warn");
+                    return;
+                }
+                if (data.status === "error") {
+                    addLog(`WATCH ERROR: ${(data.message || "UNKNOWN").toUpperCase()}`, "warn");
+                    return;
+                }
+                const state = data.ok ? "ONLINE" : "ATTENTION";
+                const title = data.title ? ` // ${data.title}` : "";
+                const message = `WATCH ${state}: ${data.status_code || data.status} ${data.elapsed_ms || 0}MS // ${data.change || "NO_CHANGE"}${title}`;
+                addLog(message.toUpperCase(), data.status === "changed" || !data.ok ? "prompt" : "system");
+                if (data.status === "changed") speak(`Watchtower detected a change on ${data.target}`);
             }
 
             function hideBrowser() { document.getElementById('browser-view').style.display = 'none'; }
