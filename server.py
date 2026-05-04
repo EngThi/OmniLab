@@ -102,6 +102,8 @@ def normalize_watch_target(raw_target: str) -> str:
     if not target:
         raise ValueError("missing watch target")
     if not re.match(r"^https?://", target, re.I):
+        if not re.match(r"^([a-z0-9-]+\.)+[a-z]{2,}(:\d+)?(/.*)?$", target, re.I) and not target.startswith("localhost"):
+            raise ValueError("watch target needs a real URL, for example https://example.com")
         target = "https://" + target
     parsed = urlparse(target)
     if parsed.scheme not in {"http", "https"} or not parsed.netloc:
@@ -165,11 +167,14 @@ async def watch_target_loop(ws: WebSocket, target: str):
         except asyncio.CancelledError:
             raise
         except Exception as e:
+            message = str(e)
+            if "Name or service not known" in message or "nodename nor servname" in message:
+                message = "Could not resolve that host. WATCH TARGET needs a public URL, not a search term."
             if not await send_ws_json(ws, {
                 "type": "watch_update",
                 "status": "error",
                 "target": target,
-                "message": str(e)[:180],
+                "message": message[:180],
                 "checked_at": int(time.time()),
             }):
                 return
@@ -425,6 +430,15 @@ def pwm_binary_available() -> bool:
 def perplexity_library_available() -> bool:
     return os.path.exists(PWM_PYTHON) and os.path.exists(PERPLEXITY_TOKEN_FILE)
 
+def wants_generated_image(query: str) -> bool:
+    text = (query or "").lower()
+    image_terms = [
+        "generate an image", "create an image", "make an image", "draw an image",
+        "image of", "picture of", "visual asset", "gerar imagem", "gere uma imagem",
+        "crie uma imagem", "criar imagem", "desenhe", "imagem de",
+    ]
+    return any(term in text for term in image_terms)
+
 async def perplexity_web_screenshot(query: str, session_id: str, continue_session: bool):
     if perplexity_library_available():
         return await perplexity_library_screenshot(query, session_id, continue_session)
@@ -481,16 +495,19 @@ async def perplexity_library_screenshot(query: str, session_id: str, continue_se
     payload = {
         "query": query,
         "session_id": session_id,
+        "image_intent": wants_generated_image(query),
         "backend_uuid": session.get("backend_uuid") if session else None,
         "read_write_token": session.get("read_write_token") if session else None,
         "token_file": PERPLEXITY_TOKEN_FILE,
     }
     script = r"""
 import json
+import re
 import sys
 from pathlib import Path
 from perplexity_web_mcp.core import Perplexity, ConversationConfig
 from perplexity_web_mcp.enums import SourceFocus, SearchFocus, CitationMode
+from perplexity_web_mcp.models import Models
 
 payload = json.loads(sys.stdin.read())
 session_token = Path(payload["token_file"]).read_text().strip()
@@ -507,7 +524,31 @@ if payload.get("backend_uuid") and payload.get("read_write_token"):
     conv._backend_uuid = payload["backend_uuid"]
     conv._read_write_token = payload["read_write_token"]
 
-conv.ask(payload["query"])
+image_intent = bool(payload.get("image_intent"))
+if image_intent:
+    conv.ask(payload["query"], model=Models.CREATE_FILES_AND_APPS)
+else:
+    conv.ask(payload["query"])
+primary_answer = conv.answer or ""
+asset_urls = []
+raw_data = getattr(conv, "_raw_data", None)
+if raw_data:
+    raw_text = json.dumps(raw_data, ensure_ascii=False)
+    for url in re.findall(r"https?://user-gen-media-assets\.s3\.amazonaws\.com/[^\s\"'<>]+", raw_text):
+        asset_urls.append(url.rstrip(".,);]*_`"))
+
+if image_intent or re.search(r"Media generated", primary_answer, re.I):
+    followup = (
+        "In this same conversation, what is the public URL, S3 URL, CDN URL, or downloadable link "
+        "for the image/media asset you just generated? Return only the direct image URL if available. "
+        "If not available, say NO_URL."
+    )
+    conv.ask(followup, model=Models.CREATE_FILES_AND_APPS)
+    for url in re.findall(r"https?://[^\s\"'<>]+", conv.answer or ""):
+        clean_url = url.rstrip(".,);]*_`")
+        if "user-gen-media-assets.s3.amazonaws.com" in clean_url or re.search(r"\.(png|jpg|jpeg|webp)(\?|$)", clean_url, re.I):
+            asset_urls.append(clean_url)
+
 search_results = []
 for item in conv.search_results:
     search_results.append({
@@ -517,8 +558,9 @@ for item in conv.search_results:
     })
 
 print(json.dumps({
-    "answer": conv.answer,
+    "answer": primary_answer,
     "search_results": search_results,
+    "asset_urls": list(dict.fromkeys(asset_urls)),
     "backend_uuid": conv._backend_uuid,
     "read_write_token": conv._read_write_token,
     "conversation_uuid": conv.uuid,
@@ -542,6 +584,7 @@ client.close()
     data = json.loads(proc.stdout)
     answer = data.get("answer") or ""
     results = data.get("search_results") or []
+    asset_urls = data.get("asset_urls") or []
     citations = [item.get("url") for item in results if item.get("url")]
     if not answer:
         return None
@@ -551,6 +594,7 @@ client.close()
         "read_write_token": data.get("read_write_token"),
         "answer": answer,
         "search_results": results,
+        "asset_urls": asset_urls,
     }
     return render_perplexity_result(
         query,
@@ -767,6 +811,12 @@ async def websocket_hud(ws: WebSocket):
                         if engine in {"google", "web"}:
                             if not await send_ws_json(ws, {"type": "status_update", "message": f"SESSION: {session_id} // {'CONTINUE' if continue_session else 'NEW'}"}):
                                 break
+                            image_intent = wants_generated_image(query)
+                            if image_intent:
+                                if not await send_ws_json(ws, {"type": "status_update", "message": "SYS: TRYING_IMAGE_ASSET"}):
+                                    break
+                                if not await send_ws_json(ws, {"type": "status_update", "message": "SYS: RESOLVING_GENERATED_ASSET_URL"}):
+                                    break
                             api_result = await web_search_screenshot(query, session_id, continue_session)
                         else:
                             api_result = None
@@ -787,6 +837,18 @@ async def websocket_hud(ws: WebSocket):
                                 break
                         if not await send_ws_json(ws, {"type": "browser_screenshot", "data": img_data}):
                             break
+                        if engine in {"google", "web"} and session_id in perplexity_sessions:
+                            session_data = perplexity_sessions.get(session_id, {})
+                            sources = session_data.get("search_results") or []
+                            if sources:
+                                if not await send_ws_json(ws, {"type": "research_sources", "sources": sources[:8]}):
+                                    break
+                            asset_urls = session_data.get("asset_urls") or []
+                            if asset_urls:
+                                if not await send_ws_json(ws, {"type": "generated_assets", "assets": asset_urls[:3]}):
+                                    break
+                                if not await send_ws_json(ws, {"type": "status_update", "message": "ASSET: GENERATED_IMAGE_READY"}):
+                                    break
                     except Exception as e:
                         print(f"❌ [Error] Research failed: {e}")
                         if not await send_ws_json(ws, {"type": "status_update", "message": f"ERROR: {str(e)[:100]}"}):

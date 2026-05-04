@@ -55,6 +55,16 @@
             #browser-header { background: rgba(10, 15, 20, 0.98); color: #fff; padding: 15px 30px; display: flex; justify-content: space-between; align-items: center; font-weight: 700; font-size: 0.75em; letter-spacing: 5px; font-family: 'Syncopate'; border-bottom: 1px solid #222; }
             .close-trigger { cursor: pointer; color: var(--warn-color); border: 1px solid var(--warn-color); padding: 5px 15px; transition: 0.3s; }
             .close-trigger:hover { background: var(--warn-color); color: #fff; box-shadow: 0 0 15px var(--warn-color); }
+            #source-actions { display:none; gap:8px; align-items:center; flex-wrap:wrap; padding:10px 18px; background:rgba(5,10,14,0.98); border-bottom:1px solid rgba(255,255,255,0.08); pointer-events:auto; }
+            #source-actions.active { display:flex; }
+            .source-label { color:#fff; font-family:'Syncopate'; font-size:0.58em; letter-spacing:2px; margin-right:4px; }
+            .source-link { max-width:220px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--accent-color); border:1px solid rgba(0,255,170,0.34); padding:8px 11px; text-decoration:none; font-size:0.64em; letter-spacing:0.5px; background:rgba(0,255,170,0.08); cursor:pointer !important; pointer-events:auto; }
+            .source-link:hover { color:#000; background:var(--accent-color); box-shadow:0 0 16px rgba(0,255,170,0.35); }
+            .source-copy { color:var(--text-color); border:1px solid rgba(0,242,255,0.22); background:rgba(0,242,255,0.06); padding:7px 10px; cursor:pointer !important; pointer-events:auto; font-size:0.64em; font-family:'Syncopate'; letter-spacing:1px; }
+            #asset-actions { display:none; gap:12px; align-items:center; flex-wrap:wrap; padding:12px 18px; background:rgba(3,8,12,0.98); border-bottom:1px solid rgba(255,255,255,0.08); pointer-events:auto; }
+            #asset-actions.active { display:flex; }
+            .asset-link { display:flex; align-items:center; gap:10px; color:#fff; text-decoration:none; border:1px solid rgba(0,255,170,0.24); background:rgba(0,255,170,0.05); padding:8px 10px; font-size:0.64em; letter-spacing:1px; cursor:pointer !important; pointer-events:auto; }
+            .asset-link img { width:86px; height:54px; object-fit:cover; border:1px solid rgba(255,255,255,0.18); background:#111; }
             #browser-container { flex: 1; overflow-y: auto; background: #000; scrollbar-width: thin; scrollbar-color: var(--text-color) #000; }
             #browser-container::-webkit-scrollbar { width: 6px; }
             #browser-container::-webkit-scrollbar-thumb { background: var(--text-color); border-radius: 10px; }
@@ -76,6 +86,23 @@
             .guide-step { display:flex; gap:10px; align-items:flex-start; margin:9px 0; color:rgba(255,255,255,0.82); font-size:0.68em; line-height:1.45; letter-spacing:0.6px; }
             .guide-step span { flex:0 0 22px; height:22px; border-radius:50%; background:rgba(0,255,170,0.12); color:var(--accent-color); display:flex; align-items:center; justify-content:center; font-weight:700; }
             #guide-panel button { margin-top:12px; width:100%; background:rgba(0,242,255,0.08); border:1px solid rgba(0,242,255,0.35); color:var(--text-color); padding:9px; cursor:pointer; font-family:'Syncopate'; font-size:0.58em; letter-spacing:2px; }
+            #tool-dock { position:relative; display:flex; flex-direction:column; align-items:flex-end; margin:2px 0; }
+            #tool-toggle { width:54px; height:92px; border-radius:28px 28px 14px 14px; border:1px solid rgba(0,242,255,0.35); border-bottom:12px solid var(--accent-color); background:linear-gradient(to top, rgba(0,255,170,0.18), rgba(0,242,255,0.04)); color:var(--accent-color); cursor:pointer; font-family:'Syncopate'; font-size:0.54em; writing-mode:vertical-rl; letter-spacing:2px; box-shadow:0 0 18px rgba(0,255,170,0.2); }
+            #tool-menu { position:absolute; right:62px; bottom:0; width:270px; display:none; flex-direction:column; gap:6px; padding:10px; background:rgba(0,8,14,0.92); border:1px solid rgba(0,242,255,0.25); border-right:3px solid var(--accent-color); backdrop-filter:blur(18px); box-shadow:0 0 32px rgba(0,0,0,0.55); z-index:1800; }
+            #tool-dock:hover #tool-menu, #tool-dock.open #tool-menu { display:flex; }
+            #artifacts-panel { position:absolute; top:80px; right:460px; width:min(520px, calc(100vw - 80px)); max-height:72vh; display:none; flex-direction:column; pointer-events:auto; z-index:2600; background:rgba(0,8,14,0.96); border:1px solid rgba(0,242,255,0.28); border-right:3px solid var(--accent-color); box-shadow:0 0 80px rgba(0,0,0,0.8); backdrop-filter:blur(20px); }
+            #artifacts-panel.active { display:flex; }
+            .artifacts-head { display:flex; justify-content:space-between; align-items:center; gap:12px; padding:14px 16px; border-bottom:1px solid rgba(255,255,255,0.08); color:#fff; font-family:'Syncopate'; font-size:0.62em; letter-spacing:2px; }
+            .artifact-actions { display:flex; gap:8px; }
+            .artifact-actions button, .artifact-open, .artifact-delete { border:1px solid rgba(0,242,255,0.24); background:rgba(0,242,255,0.06); color:var(--text-color); padding:7px 9px; font-family:'Syncopate'; font-size:0.58em; letter-spacing:1px; cursor:pointer !important; }
+            .artifact-delete, .artifact-actions .danger { border-color:rgba(255,0,85,0.4); color:var(--warn-color); background:rgba(255,0,85,0.06); }
+            #artifacts-list { overflow:auto; padding:10px; display:flex; flex-direction:column; gap:8px; }
+            .artifact-item { border:1px solid rgba(255,255,255,0.08); background:rgba(255,255,255,0.03); padding:10px; display:grid; grid-template-columns:74px 1fr; gap:10px; align-items:start; }
+            .artifact-thumb { width:74px; height:48px; object-fit:cover; background:#050505; border:1px solid rgba(255,255,255,0.12); }
+            .artifact-title { color:#fff; font-size:0.72em; line-height:1.35; letter-spacing:0.7px; text-transform:none; margin-bottom:5px; }
+            .artifact-meta { color:rgba(255,255,255,0.52); font-size:0.62em; line-height:1.4; text-transform:none; margin-bottom:8px; }
+            .artifact-links { display:flex; flex-wrap:wrap; gap:6px; }
+            .artifact-empty { padding:22px; color:rgba(255,255,255,0.58); font-size:0.72em; text-align:center; }
         </style>
     </head>
     <body>
@@ -121,19 +148,38 @@
 
                 <button class="cmd-btn mic-primary" id="mic-btn" onclick="toggleMic()" title="Enable spoken commands"><span>VOICE INPUT: OFF</span><span>🎙</span></button>
                 <button class="cmd-btn special" id="vision-btn" onclick="toggleVision()" title="Camera stays in browser except captured analysis frames">ACTIVATE CAMERA</button>
-                <button class="cmd-btn" id="scan-btn" onclick="runAnalyze(false)" title="Analyze the current camera frame">ENVIRONMENT SCAN</button>
                 <button class="cmd-btn special" onclick="runAnalyze(true)" title="Analyze the current frame and search the suggested target">SCAN + RESEARCH</button>
-                <button class="cmd-btn special" id="watch-btn" onclick="startWatch()" title="Continuously monitor the target URL for status/content changes">WATCH TARGET</button>
-                <button class="cmd-btn" onclick="stopWatch()" title="Stop active Watchtower monitoring">STOP WATCH</button>
-                <button class="cmd-btn" onclick="focusTargetField()" title="Enter a real search target manually">MANUAL TARGET</button>
                 <button class="cmd-btn special" onclick="sendCommand('analyze_and_search')" title="Run browser research for the target field">EXECUTE RESEARCH</button>
-                <button class="cmd-btn warn" onclick="sendCommand('close_browser')" title="Clear session memory and close active feed">SHUTDOWN SYSTEM</button>
+                <div id="tool-dock">
+                    <button id="tool-toggle" onclick="toggleToolDock()">TOOLS</button>
+                    <div id="tool-menu">
+                        <button class="cmd-btn" id="scan-btn" onclick="runAnalyze(false)" title="Analyze the current camera frame">ENVIRONMENT SCAN</button>
+                        <button class="cmd-btn special" id="watch-btn" onclick="startWatch()" title="Monitor a URL for status/content changes">WATCH URL</button>
+                        <button class="cmd-btn" onclick="stopWatch()" title="Stop active Watchtower monitoring">STOP WATCH</button>
+                        <button class="cmd-btn" onclick="toggleArtifacts()" title="Open saved local searches and generated assets">ARTIFACTS</button>
+                        <button class="cmd-btn" onclick="focusTargetField()" title="Enter a real search target manually">MANUAL TARGET</button>
+                        <button class="cmd-btn warn" onclick="sendCommand('close_browser')" title="Clear session memory and close active feed">SHUTDOWN SYSTEM</button>
+                    </div>
+                </div>
+            </div>
+            <div id="artifacts-panel">
+                <div class="artifacts-head">
+                    <span>LOCAL ARTIFACTS</span>
+                    <div class="artifact-actions">
+                        <button onclick="refreshArtifacts()">REFRESH</button>
+                        <button class="danger" onclick="deleteAllArtifacts()">DELETE ALL</button>
+                        <button onclick="toggleArtifacts(false)">CLOSE</button>
+                    </div>
+                </div>
+                <div id="artifacts-list"><div class="artifact-empty">No saved artifacts yet.</div></div>
             </div>
             <div id="browser-view">
                 <div id="browser-header">
                     <span>SAT_INTEL_STREAM // ENCRYPTED</span>
                     <div class="close-trigger" onclick="hideBrowser()">[ X ]</div>
                 </div>
+                <div id="source-actions"></div>
+                <div id="asset-actions"></div>
                 <div id="browser-container"><img id="browser-content" src="" /></div>
             </div>
         </div>
@@ -142,13 +188,28 @@
             const mouseCursor = document.getElementById('custom-mouse');
             document.addEventListener('mousemove', (e) => { mouseCursor.style.left = e.clientX + 'px'; mouseCursor.style.top = e.clientY + 'px'; });
 
-            let lastSuggestedQuery = "", currentEngine = "web", searchSessionId = crypto.randomUUID().slice(0, 8), continueSearchSession = true, isMicActive = false, isScanning = false, lastXTriggerTime = 0, lastThumbsUpTriggerTime = 0, lastPinchTriggerTime = 0, actionHoldTime = 0, isTTSActive = true, voices = [], isGesturesAuto = false;
+            const SESSION_STORAGE_KEY = "omnilabSearchSessionId";
+            const SESSION_MODE_KEY = "omnilabContinueSession";
+            const makeSessionId = () => crypto.randomUUID().slice(0, 8);
+            let savedSessionId = localStorage.getItem(SESSION_STORAGE_KEY);
+            if (!savedSessionId) {
+                savedSessionId = makeSessionId();
+                localStorage.setItem(SESSION_STORAGE_KEY, savedSessionId);
+            }
+            let lastSuggestedQuery = "", currentEngine = "web", searchSessionId = savedSessionId, continueSearchSession = localStorage.getItem(SESSION_MODE_KEY) !== "false", visibleSourceUrls = [], generatedAssetUrls = [], currentArtifact = null, isMicActive = false, isScanning = false, lastXTriggerTime = 0, lastThumbsUpTriggerTime = 0, lastPinchTriggerTime = 0, actionHoldTime = 0, isTTSActive = true, voices = [], isGesturesAuto = false;
             const HOLD_THRESHOLD = 1500;
             const THUMB_SCAN_COOLDOWN = 4500;
             const PINCH_CONFIRM_COOLDOWN = 1800;
+            const ARTIFACT_DB_NAME = "omnilabArtifacts";
+            const ARTIFACT_STORE = "artifacts";
+            let artifactDbPromise = null;
 
             function hideGuide() {
                 document.getElementById('guide-panel').classList.add('hidden');
+            }
+
+            function toggleToolDock() {
+                document.getElementById('tool-dock').classList.toggle('open');
             }
 
             function toggleGestures() {
@@ -160,7 +221,11 @@
 
             function toggleSearchSession() {
                 continueSearchSession = !continueSearchSession;
-                if (!continueSearchSession) searchSessionId = crypto.randomUUID().slice(0, 8);
+                if (!continueSearchSession) {
+                    searchSessionId = makeSessionId();
+                    localStorage.setItem(SESSION_STORAGE_KEY, searchSessionId);
+                }
+                localStorage.setItem(SESSION_MODE_KEY, String(continueSearchSession));
                 const btn = document.getElementById('session-btn');
                 btn.innerText = continueSearchSession ? "SESSION: CONTINUE" : "SESSION: NEW";
                 addLog(continueSearchSession ? `PERPLEXITY SESSION: CONTINUE ${searchSessionId}` : `PERPLEXITY SESSION: NEW ${searchSessionId}`, "system");
@@ -232,6 +297,135 @@
                 entry.className = `log-entry ${type}`; entry.innerText = `> ${text}`;
                 consoleEl.appendChild(entry); consoleEl.scrollTop = consoleEl.scrollHeight;
                 if (consoleEl.childNodes.length > 80) consoleEl.firstChild.remove();
+            }
+
+            function openArtifactDb() {
+                if (artifactDbPromise) return artifactDbPromise;
+                artifactDbPromise = new Promise((resolve, reject) => {
+                    const request = indexedDB.open(ARTIFACT_DB_NAME, 1);
+                    request.onupgradeneeded = () => {
+                        const db = request.result;
+                        if (!db.objectStoreNames.contains(ARTIFACT_STORE)) {
+                            db.createObjectStore(ARTIFACT_STORE, { keyPath: "id" });
+                        }
+                    };
+                    request.onsuccess = () => resolve(request.result);
+                    request.onerror = () => reject(request.error);
+                });
+                return artifactDbPromise;
+            }
+
+            async function saveArtifact(artifact) {
+                if (!artifact?.id) return;
+                try {
+                    const db = await openArtifactDb();
+                    await new Promise((resolve, reject) => {
+                        const tx = db.transaction(ARTIFACT_STORE, "readwrite");
+                        tx.objectStore(ARTIFACT_STORE).put(artifact);
+                        tx.oncomplete = resolve;
+                        tx.onerror = () => reject(tx.error);
+                    });
+                    if (document.getElementById('artifacts-panel').classList.contains('active')) refreshArtifacts();
+                } catch (err) {
+                    addLog("ARTIFACT SAVE FAILED", "warn");
+                }
+            }
+
+            async function getArtifacts() {
+                const db = await openArtifactDb();
+                return await new Promise((resolve, reject) => {
+                    const tx = db.transaction(ARTIFACT_STORE, "readonly");
+                    const request = tx.objectStore(ARTIFACT_STORE).getAll();
+                    request.onsuccess = () => resolve((request.result || []).sort((a, b) => b.createdAt - a.createdAt));
+                    request.onerror = () => reject(request.error);
+                });
+            }
+
+            async function deleteArtifact(id) {
+                const db = await openArtifactDb();
+                await new Promise((resolve, reject) => {
+                    const tx = db.transaction(ARTIFACT_STORE, "readwrite");
+                    tx.objectStore(ARTIFACT_STORE).delete(id);
+                    tx.oncomplete = resolve;
+                    tx.onerror = () => reject(tx.error);
+                });
+                if (currentArtifact?.id === id) currentArtifact = null;
+                addLog("ARTIFACT DELETED", "warn");
+                refreshArtifacts();
+            }
+
+            async function deleteAllArtifacts() {
+                const db = await openArtifactDb();
+                await new Promise((resolve, reject) => {
+                    const tx = db.transaction(ARTIFACT_STORE, "readwrite");
+                    tx.objectStore(ARTIFACT_STORE).clear();
+                    tx.oncomplete = resolve;
+                    tx.onerror = () => reject(tx.error);
+                });
+                currentArtifact = null;
+                addLog("ALL LOCAL ARTIFACTS DELETED", "warn");
+                refreshArtifacts();
+            }
+
+            function toggleArtifacts(force) {
+                const panel = document.getElementById('artifacts-panel');
+                const shouldOpen = typeof force === "boolean" ? force : !panel.classList.contains('active');
+                panel.classList.toggle('active', shouldOpen);
+                if (shouldOpen) refreshArtifacts();
+            }
+
+            async function refreshArtifacts() {
+                const list = document.getElementById('artifacts-list');
+                try {
+                    const artifacts = await getArtifacts();
+                    if (!artifacts.length) {
+                        list.innerHTML = `<div class="artifact-empty">No saved artifacts yet.</div>`;
+                        return;
+                    }
+                    list.innerHTML = artifacts.slice(0, 30).map(artifact => renderArtifactItem(artifact)).join("");
+                } catch (err) {
+                    list.innerHTML = `<div class="artifact-empty">Could not read local artifacts.</div>`;
+                }
+            }
+
+            function renderArtifactItem(artifact) {
+                const sourceCount = artifact.sources?.length || 0;
+                const assetCount = artifact.assets?.length || 0;
+                const date = new Date(artifact.createdAt).toLocaleString();
+                const thumb = artifact.assets?.[0] || (artifact.screenshot ? `data:image/jpeg;base64,${artifact.screenshot}` : "");
+                const img = thumb ? `<img class="artifact-thumb" src="${escapeHtml(thumb)}" alt="" />` : `<div class="artifact-thumb"></div>`;
+                return `
+                    <div class="artifact-item">
+                        ${img}
+                        <div>
+                            <div class="artifact-title">${escapeHtml(artifact.query || "Untitled artifact")}</div>
+                            <div class="artifact-meta">${escapeHtml(date)} · ${escapeHtml(artifact.engine || "search")} · ${sourceCount} sources · ${assetCount} assets</div>
+                            <div class="artifact-links">
+                                <button class="artifact-open" onclick="restoreArtifact('${escapeHtml(artifact.id)}')">OPEN</button>
+                                ${artifact.assets?.[0] ? `<button class="artifact-open" onclick="openArtifactUrl('${encodeURIComponent(artifact.assets[0])}')">OPEN IMAGE</button>` : ""}
+                                ${artifact.sources?.[0]?.url ? `<button class="artifact-open" onclick="openArtifactUrl('${encodeURIComponent(artifact.sources[0].url)}')">OPEN SOURCE</button>` : ""}
+                                <button class="artifact-delete" onclick="deleteArtifact('${escapeHtml(artifact.id)}')">DELETE</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            async function restoreArtifact(id) {
+                const artifacts = await getArtifacts();
+                const artifact = artifacts.find(item => item.id === id);
+                if (!artifact) return;
+                currentArtifact = artifact;
+                document.getElementById("search-box").value = artifact.query || "";
+                if (artifact.screenshot) showBrowser(artifact.screenshot);
+                showSources(artifact.sources || []);
+                showGeneratedAssets(artifact.assets || []);
+                toggleArtifacts(false);
+                addLog("ARTIFACT RESTORED", "system");
+            }
+
+            function openArtifactUrl(encodedUrl) {
+                window.open(decodeURIComponent(encodedUrl), "_blank")?.focus?.();
             }
 
             function toggleTTS() {
@@ -428,6 +622,10 @@
                         if (data.message.includes("PURGED")) { hideBrowser(); lastSuggestedQuery = ""; }
                     } else if (data.type === 'browser_screenshot') {
                         showBrowser(data.data);
+                    } else if (data.type === 'research_sources') {
+                        showSources(data.sources || []);
+                    } else if (data.type === 'generated_assets') {
+                        showGeneratedAssets(data.assets || []);
                     } else if (data.type === 'watch_update') {
                         handleWatchUpdate(data);
                     } else if (data.text) {
@@ -462,6 +660,16 @@
                     if (data.text) {
                         if (data.text === "API KEY ERROR") { addLog("INTEL: ERROR - MISSING_GEMINI_API_KEY", "warn"); }
                         else {
+                            saveArtifact({
+                                id: `${Date.now()}-${crypto.randomUUID().slice(0, 8)}`,
+                                createdAt: Date.now(),
+                                query: data.suggested_query || data.text.slice(0, 90) || "Environment scan",
+                                engine: "scan",
+                                sessionId: searchSessionId,
+                                sources: [],
+                                assets: [],
+                                screenshot: imgB64
+                            });
                             addLog(`RESULT: ${cleanTacticalText(data.text)}`, "#fff");
                             speak(data.text);
                             if (data.suggested_query) {
@@ -492,7 +700,12 @@
                 const input = document.getElementById("search-box");
                 const target = input.value.trim();
                 if (!target) {
-                    addLog("WATCH TARGET REQUIRED", "warn");
+                    addLog("WATCH URL REQUIRED: TYPE HTTPS://EXAMPLE.COM", "warn");
+                    input.focus();
+                    return;
+                }
+                if (!/^https?:\/\/|^([a-z0-9-]+\.)+[a-z]{2,}/i.test(target)) {
+                    addLog("WATCH NEEDS A URL, NOT A SEARCH TERM", "warn");
                     input.focus();
                     return;
                 }
@@ -533,7 +746,95 @@
             }
 
             function hideBrowser() { document.getElementById('browser-view').style.display = 'none'; }
-            function showBrowser(base64Data) { addLog("FEED ONLINE", "system"); document.getElementById('browser-content').src = `data:image/jpeg;base64,${base64Data}`; document.getElementById('browser-view').style.display = 'flex'; document.getElementById('browser-container').scrollTop = 0; }
+            function showBrowser(base64Data) {
+                addLog("FEED ONLINE", "system");
+                document.getElementById('browser-content').src = `data:image/jpeg;base64,${base64Data}`;
+                document.getElementById('browser-view').style.display = 'flex';
+                document.getElementById('browser-container').scrollTop = 0;
+                if (currentArtifact) {
+                    currentArtifact.screenshot = base64Data;
+                    saveArtifact(currentArtifact);
+                }
+            }
+            function showSources(sources) {
+                const panel = document.getElementById('source-actions');
+                const cleanSources = sources.filter(s => s && s.url).slice(0, 5);
+                if (!cleanSources.length) {
+                    panel.classList.remove('active');
+                    panel.innerHTML = "";
+                    visibleSourceUrls = [];
+                    return;
+                }
+                visibleSourceUrls = cleanSources.map(source => source.url);
+                const links = cleanSources.map((source, idx) => {
+                    const label = source.title || source.url.replace(/^https?:\/\/(www\.)?/, '').split('/')[0];
+                    return `<a class="source-link" href="${escapeHtml(source.url)}" target="_blank" rel="noopener noreferrer" title="${escapeHtml(source.url)}" onclick="openSource(event, ${idx})">OPEN ${idx + 1}: ${escapeHtml(label)}</a>`;
+                }).join("");
+                panel.innerHTML = `<span class="source-label">SOURCE LINKS</span>${links}<button class="source-copy" onclick="copySources()">COPY SOURCES</button>`;
+                panel.classList.add('active');
+                if (currentArtifact) {
+                    currentArtifact.sources = cleanSources;
+                    saveArtifact(currentArtifact);
+                }
+                addLog(`SOURCES READY: ${cleanSources.length} LINKS`, "system");
+            }
+            function escapeHtml(value) {
+                return String(value).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+            }
+            function copySources() {
+                navigator.clipboard?.writeText(visibleSourceUrls.join("\n"));
+                addLog("SOURCES COPIED", "system");
+            }
+            function openSource(event, index) {
+                event.preventDefault();
+                const url = visibleSourceUrls[index];
+                if (!url) return;
+                addLog(`OPENING SOURCE ${index + 1}`, "system");
+                const opened = window.open(url, "_blank");
+                if (!opened) {
+                    navigator.clipboard?.writeText(url);
+                    window.location.href = url;
+                } else {
+                    opened.opener = null;
+                    opened.focus?.();
+                }
+            }
+            function showGeneratedAssets(assets) {
+                const panel = document.getElementById('asset-actions');
+                const urls = assets.filter(url => /^https?:\/\//i.test(url)).slice(0, 3);
+                if (!urls.length) {
+                    panel.classList.remove('active');
+                    panel.innerHTML = "";
+                    generatedAssetUrls = [];
+                    return;
+                }
+                generatedAssetUrls = urls;
+                const links = urls.map((url, idx) => `
+                    <a class="asset-link" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" title="${escapeHtml(url)}">
+                        <img src="${escapeHtml(url)}" alt="Generated asset ${idx + 1}" loading="lazy" />
+                        <span>OPEN GENERATED IMAGE ${idx + 1}</span>
+                    </a>
+                `).join("");
+                panel.innerHTML = `${links}<button class="source-copy" onclick="copyGeneratedAssets()">COPY ASSET URL</button>`;
+                panel.classList.add('active');
+                if (currentArtifact) {
+                    currentArtifact.assets = urls;
+                    saveArtifact(currentArtifact);
+                }
+                addLog(`GENERATED ASSET READY: ${urls.length} URL`, "system");
+            }
+            function copyGeneratedAssets() {
+                navigator.clipboard?.writeText(generatedAssetUrls.join("\n"));
+                addLog("ASSET URL COPIED", "system");
+            }
+            function clearResultActions() {
+                document.getElementById('source-actions').classList.remove('active');
+                document.getElementById('source-actions').innerHTML = "";
+                document.getElementById('asset-actions').classList.remove('active');
+                document.getElementById('asset-actions').innerHTML = "";
+                visibleSourceUrls = [];
+                generatedAssetUrls = [];
+            }
             function sendCommand(cmd) {
                 const q = document.getElementById("search-box").value.trim();
                 if (cmd === "analyze_and_search" && !(q || lastSuggestedQuery)) {
@@ -542,8 +843,33 @@
                     return;
                 }
                 if (ws?.readyState === 1) {
-                    if (cmd === "analyze_and_search") ws.send(JSON.stringify({ type: "command", command: "analyze_and_search", query: q || lastSuggestedQuery, engine: currentEngine, session_id: searchSessionId, continue_session: continueSearchSession }));
-                    else ws.send(JSON.stringify({ type: "command", command: cmd }));
+                    if (cmd === "analyze_and_search") {
+                        clearResultActions();
+                        localStorage.setItem(SESSION_STORAGE_KEY, searchSessionId);
+                        localStorage.setItem(SESSION_MODE_KEY, String(continueSearchSession));
+                        currentArtifact = {
+                            id: `${Date.now()}-${crypto.randomUUID().slice(0, 8)}`,
+                            createdAt: Date.now(),
+                            query: q || lastSuggestedQuery,
+                            engine: currentEngine,
+                            sessionId: searchSessionId,
+                            sources: [],
+                            assets: [],
+                            screenshot: ""
+                        };
+                        saveArtifact(currentArtifact);
+                        ws.send(JSON.stringify({ type: "command", command: "analyze_and_search", query: q || lastSuggestedQuery, engine: currentEngine, session_id: searchSessionId, continue_session: continueSearchSession }));
+                    }
+                    else {
+                        if (cmd === "close_browser") {
+                            searchSessionId = makeSessionId();
+                            localStorage.setItem(SESSION_STORAGE_KEY, searchSessionId);
+                            localStorage.setItem(SESSION_MODE_KEY, "true");
+                            continueSearchSession = true;
+                            document.getElementById('session-btn').innerText = "SESSION: CONTINUE";
+                        }
+                        ws.send(JSON.stringify({ type: "command", command: cmd }));
+                    }
                 } else {
                     addLog("WEBSOCKET OFFLINE", "warn");
                 }
@@ -554,6 +880,8 @@
             connect(); animate();
             addLog("PRIVACY: CAMERA FRAMES ARE NOT STORED", "system");
             addLog("GESTURES START IN MANUAL TO PREVENT ACCIDENTAL ACTIONS", "system");
+            addLog(`SESSION RESTORED: ${searchSessionId}`, "system");
+            document.getElementById('session-btn').innerText = continueSearchSession ? "SESSION: CONTINUE" : "SESSION: NEW";
             window.addEventListener('click', () => { if(isTTSActive) { const silent = new SpeechSynthesisUtterance(""); window.speechSynthesis.speak(silent); } }, {once: true});
         </script>
     </body>
