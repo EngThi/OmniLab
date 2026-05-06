@@ -124,7 +124,7 @@
                 <div class="guide-step"><span>1</span><div>Type a target or activate camera and scan the scene.</div></div>
                 <div class="guide-step"><span>2</span><div>Use SEARCH for sourced answers, or GEMINI for direct chat capture.</div></div>
                 <div class="guide-step"><span>3</span><div>Use SCAN + RESEARCH to turn a camera frame into web research.</div></div>
-                <div class="guide-step"><span>4</span><div>Use URL MONITOR with a real link like https://example.com to watch uptime, latency, title, and page changes.</div></div>
+                <div class="guide-step"><span>4</span><div>Use URL MONITOR with a real link to check uptime, generate a baseline report, and auto-research changes.</div></div>
                 <button onclick="hideGuide()">START USING OMNILAB</button>
             </div>
             <div id="log-console"></div>
@@ -626,6 +626,8 @@
                         showSources(data.sources || []);
                     } else if (data.type === 'generated_assets') {
                         showGeneratedAssets(data.assets || []);
+                    } else if (data.type === 'watch_artifact_start') {
+                        startWatchArtifact(data);
                     } else if (data.type === 'watch_update') {
                         handleWatchUpdate(data);
                     } else if (data.text) {
@@ -723,6 +725,24 @@
                 } else {
                     addLog("WEBSOCKET OFFLINE", "warn");
                 }
+            }
+
+            function startWatchArtifact(data) {
+                currentArtifact = {
+                    id: `${Date.now()}-${crypto.randomUUID().slice(0, 8)}`,
+                    createdAt: Date.now(),
+                    query: `URL monitor ${data.reason || "report"}: ${data.target || ""}`,
+                    engine: "url-monitor",
+                    sessionId: searchSessionId,
+                    sources: [],
+                    assets: [],
+                    screenshot: "",
+                    monitorTarget: data.target || "",
+                    monitorReason: data.reason || "",
+                    workflowQuery: data.query || ""
+                };
+                saveArtifact(currentArtifact);
+                addLog(`URL MONITOR WORKFLOW: ${String(data.reason || "REPORT").toUpperCase()} RESEARCH`, "prompt");
             }
 
             function handleWatchUpdate(data) {

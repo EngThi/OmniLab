@@ -16,9 +16,10 @@ The operational automation workflow is:
 
 1. Put a URL in **TARGET_IDENTIFIER**.
 2. Press **URL MONITOR**.
-3. OmniLab repeatedly checks the target for availability and content changes.
-4. The HUD reports status, latency, title, and content-change events.
-5. Press **STOP WATCH** or **SHUTDOWN SYSTEM** to stop monitoring.
+3. OmniLab checks the target for availability, latency, title, and content changes.
+4. It automatically generates a baseline research report, then generates another report when the URL changes or has availability problems.
+5. The monitor reports are saved in **ARTIFACTS** with their screenshot and source links.
+6. Press **STOP WATCH** or **SHUTDOWN SYSTEM** to stop monitoring.
 
 ## What It Is Useful For
 
@@ -32,6 +33,7 @@ OmniLab is not a static demo page. It is built around real workflows that are us
 *   **Generated image assets:** Image-generation requests use the Perplexity file/app model, then OmniLab asks the same conversation for the direct generated asset URL and renders it when available.
 *   **Local artifact library:** Searches, scan frames, result screenshots, source links, and generated image URLs are stored in the user's browser IndexedDB with individual delete and delete-all controls.
 *   **Watchtower monitoring:** Turn any URL into a live monitor for uptime/content changes directly inside the HUD.
+*   **Monitor-to-report workflow:** URL Monitor turns a watched page into an automatic baseline report and follow-up reports when the page changes.
 *   **Hands-light operation:** Thumbs-up scans the environment, pinch confirms suggested research, and voice commands can trigger scan/search/purge.
 
 ## Data Handling and Security
@@ -94,7 +96,9 @@ Automation test path:
 1. Type `https://omnilab1.duckdns.org/` or another public URL in **TARGET_IDENTIFIER**.
 2. Press **URL MONITOR**.
 3. The HUD should log `WATCH ONLINE` with HTTP status, latency, and page title.
-4. Press **STOP WATCH** to end the automation.
+4. The HUD should automatically open a source-backed baseline report for that URL.
+5. Open **ARTIFACTS** to confirm the monitor report was saved.
+6. Press **STOP WATCH** to end the automation.
 
 ## Interface Protocols
 
@@ -112,7 +116,7 @@ Automation test path:
 *   **"Terminate":** Emergency system shutdown.
 
 ### Watchtower Automation
-*   **URL MONITOR:** Starts a real backend monitor for the URL in the target field. It is for uptime/content-change checks, not normal web search.
+*   **URL MONITOR:** Starts a real backend monitor for the URL in the target field. It is for uptime/content-change checks, not normal web search. It also creates an automatic baseline research report and another report when the page changes.
 *   **STOP WATCH:** Cancels the active monitor.
 *   **SHUTDOWN SYSTEM:** Clears session memory and stops active monitoring.
 
@@ -129,6 +133,7 @@ Automation test path:
 *   **Asset workflow:** Image-generation prompts are routed through Perplexity's file/app model. OmniLab then uses the same conversation to resolve the generated asset URL and display it in the HUD.
 *   **Local artifacts:** Browser IndexedDB stores user-controlled artifacts. The backend does not persist these artifacts.
 *   **Automation:** Watchtower runs an in-memory async monitor that checks URL status, latency, title, and content hash on an interval.
+*   **Automated reports:** Watchtower can trigger the same web research renderer to create baseline/change reports from monitored URLs and save them as local artifacts.
 *   **Fallback search:** Google Programmable Search, Brave Search, DuckDuckGo HTML, Yahoo/browser fallback, depending on configured keys and provider availability.
 *   **Visual framework:** Three.js renders the HUD and MediaPipe Tasks for Web tracks hands locally in the browser.
 *   **Backend:** FastAPI WebSockets coordinate HUD events, scan analysis, search sessions, and screenshot/result rendering.

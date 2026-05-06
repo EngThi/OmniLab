@@ -153,6 +153,8 @@ async def fetch_watch_snapshot(target: str) -> dict:
 
 async def watch_target_loop(ws: WebSocket, target: str):
     previous = None
+    baseline_reported = False
+    last_researched_signature = None
     await send_ws_json(ws, {"type": "watch_update", "status": "started", "target": target, "message": f"WATCHING {target}"})
     while True:
         try:
@@ -163,6 +165,58 @@ async def watch_target_loop(ws: WebSocket, target: str):
             current["status"] = "changed" if previous and summary != "NO_CHANGE" else "ok"
             if not await send_ws_json(ws, {"type": "watch_update", **current}):
                 return
+            should_research = False
+            reason = ""
+            if not baseline_reported:
+                should_research = True
+                reason = "baseline"
+                baseline_reported = True
+            elif previous and summary != "NO_CHANGE":
+                should_research = True
+                reason = "change"
+            elif not current.get("ok"):
+                should_research = True
+                reason = "availability"
+
+            signature = f"{reason}:{current.get('status_code')}:{current.get('content_hash')}:{current.get('title')}"
+            if should_research and signature != last_researched_signature:
+                last_researched_signature = signature
+                workflow_query = (
+                    f"URL monitor workflow report for {target}. "
+                    f"Current status: HTTP {current.get('status_code')} in {current.get('elapsed_ms')}ms. "
+                    f"Title: {current.get('title') or 'unknown'}. "
+                    f"Detected reason: {reason}; change summary: {summary}. "
+                    "Research this URL and produce a practical monitoring report: what changed or matters, "
+                    "why a user should care, and recommended next actions. Include sources."
+                )
+                await send_ws_json(ws, {
+                    "type": "watch_artifact_start",
+                    "target": target,
+                    "query": workflow_query,
+                    "reason": reason,
+                })
+                await send_ws_json(ws, {
+                    "type": "status_update",
+                    "message": f"WORKFLOW: AUTO_RESEARCH_{reason.upper()}",
+                })
+                try:
+                    session_id = f"watch-{uuid.uuid4().hex[:8]}"
+                    api_result = await web_search_screenshot(workflow_query, session_id, False)
+                    if api_result:
+                        img_data, _ = api_result
+                        if not await send_ws_json(ws, {"type": "browser_screenshot", "data": img_data}):
+                            return
+                        session_data = perplexity_sessions.get(session_id, {})
+                        sources = session_data.get("search_results") or []
+                        if sources:
+                            if not await send_ws_json(ws, {"type": "research_sources", "sources": sources[:8]}):
+                                return
+                except Exception as research_error:
+                    print(f"⚠️ [WatchWorkflow] Auto research failed: {research_error}")
+                    await send_ws_json(ws, {
+                        "type": "status_update",
+                        "message": f"WARN: WATCH_WORKFLOW_RESEARCH_FAILED {str(research_error)[:80]}",
+                    })
             previous = current
         except asyncio.CancelledError:
             raise
