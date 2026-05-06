@@ -15,7 +15,7 @@ The main workflow is:
 The operational automation workflow is:
 
 1. Put a URL in **TARGET_IDENTIFIER**.
-2. Press **WATCH TARGET**.
+2. Press **URL MONITOR**.
 3. OmniLab repeatedly checks the target for availability and content changes.
 4. The HUD reports status, latency, title, and content-change events.
 5. Press **STOP WATCH** or **SHUTDOWN SYSTEM** to stop monitoring.
@@ -92,7 +92,7 @@ Generated image path:
 Automation test path:
 
 1. Type `https://omnilab1.duckdns.org/` or another public URL in **TARGET_IDENTIFIER**.
-2. Press **WATCH TARGET**.
+2. Press **URL MONITOR**.
 3. The HUD should log `WATCH ONLINE` with HTTP status, latency, and page title.
 4. Press **STOP WATCH** to end the automation.
 
@@ -112,7 +112,7 @@ Automation test path:
 *   **"Terminate":** Emergency system shutdown.
 
 ### Watchtower Automation
-*   **WATCH TARGET:** Starts a real backend monitor for the URL in the target field.
+*   **URL MONITOR:** Starts a real backend monitor for the URL in the target field. It is for uptime/content-change checks, not normal web search.
 *   **STOP WATCH:** Cancels the active monitor.
 *   **SHUTDOWN SYSTEM:** Clears session memory and stops active monitoring.
 

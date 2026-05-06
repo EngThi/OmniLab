@@ -124,7 +124,7 @@
                 <div class="guide-step"><span>1</span><div>Type a target or activate camera and scan the scene.</div></div>
                 <div class="guide-step"><span>2</span><div>Use SEARCH for sourced answers, or GEMINI for direct chat capture.</div></div>
                 <div class="guide-step"><span>3</span><div>Use SCAN + RESEARCH to turn a camera frame into web research.</div></div>
-                <div class="guide-step"><span>4</span><div>Use WATCH TARGET to monitor a URL for status and content changes.</div></div>
+                <div class="guide-step"><span>4</span><div>Use URL MONITOR with a real link like https://example.com to watch uptime, latency, title, and page changes.</div></div>
                 <button onclick="hideGuide()">START USING OMNILAB</button>
             </div>
             <div id="log-console"></div>
@@ -154,7 +154,7 @@
                     <button id="tool-toggle" onclick="toggleToolDock()">TOOLS</button>
                     <div id="tool-menu">
                         <button class="cmd-btn" id="scan-btn" onclick="runAnalyze(false)" title="Analyze the current camera frame">ENVIRONMENT SCAN</button>
-                        <button class="cmd-btn special" id="watch-btn" onclick="startWatch()" title="Monitor a URL for status/content changes">WATCH URL</button>
+                        <button class="cmd-btn special" id="watch-btn" onclick="startWatch()" title="Monitor a real URL for uptime, latency, page title, and content changes">URL MONITOR</button>
                         <button class="cmd-btn" onclick="stopWatch()" title="Stop active Watchtower monitoring">STOP WATCH</button>
                         <button class="cmd-btn" onclick="toggleArtifacts()" title="Open saved local searches and generated assets">ARTIFACTS</button>
                         <button class="cmd-btn" onclick="focusTargetField()" title="Enter a real search target manually">MANUAL TARGET</button>
@@ -700,18 +700,18 @@
                 const input = document.getElementById("search-box");
                 const target = input.value.trim();
                 if (!target) {
-                    addLog("WATCH URL REQUIRED: TYPE HTTPS://EXAMPLE.COM", "warn");
+                    addLog("URL MONITOR NEEDS A REAL LINK: HTTPS://EXAMPLE.COM", "warn");
                     input.focus();
                     return;
                 }
                 if (!/^https?:\/\/|^([a-z0-9-]+\.)+[a-z]{2,}/i.test(target)) {
-                    addLog("WATCH NEEDS A URL, NOT A SEARCH TERM", "warn");
+                    addLog("URL MONITOR WATCHES SITES, NOT SEARCH TERMS", "warn");
                     input.focus();
                     return;
                 }
                 if (ws?.readyState === 1) {
                     ws.send(JSON.stringify({ type: "command", command: "start_watch", query: target }));
-                    addLog(`WATCHTOWER ARMING: ${target.toUpperCase()}`, "system");
+                    addLog(`URL MONITOR STARTED: CHECKING STATUS, LATENCY, TITLE, AND CHANGES FOR ${target.toUpperCase()}`, "system");
                 } else {
                     addLog("WEBSOCKET OFFLINE", "warn");
                 }
@@ -781,9 +781,37 @@
             function escapeHtml(value) {
                 return String(value).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
             }
+            async function copyText(value, successMessage) {
+                const text = String(value || "");
+                if (!text) {
+                    addLog("NOTHING TO COPY", "warn");
+                    return false;
+                }
+                try {
+                    if (navigator.clipboard?.writeText && window.isSecureContext) {
+                        await navigator.clipboard.writeText(text);
+                    } else {
+                        const area = document.createElement("textarea");
+                        area.value = text;
+                        area.setAttribute("readonly", "");
+                        area.style.position = "fixed";
+                        area.style.left = "-9999px";
+                        document.body.appendChild(area);
+                        area.select();
+                        const ok = document.execCommand("copy");
+                        area.remove();
+                        if (!ok) throw new Error("copy command rejected");
+                    }
+                    addLog(successMessage, "system");
+                    return true;
+                } catch (err) {
+                    window.prompt("Copy this text:", text);
+                    addLog("COPY FALLBACK OPENED", "warn");
+                    return false;
+                }
+            }
             function copySources() {
-                navigator.clipboard?.writeText(visibleSourceUrls.join("\n"));
-                addLog("SOURCES COPIED", "system");
+                copyText(visibleSourceUrls.join("\n"), "SOURCES COPIED");
             }
             function openSource(event, index) {
                 event.preventDefault();
@@ -792,7 +820,7 @@
                 addLog(`OPENING SOURCE ${index + 1}`, "system");
                 const opened = window.open(url, "_blank");
                 if (!opened) {
-                    navigator.clipboard?.writeText(url);
+                    copyText(url, "SOURCE URL COPIED");
                     window.location.href = url;
                 } else {
                     opened.opener = null;
@@ -824,8 +852,7 @@
                 addLog(`GENERATED ASSET READY: ${urls.length} URL`, "system");
             }
             function copyGeneratedAssets() {
-                navigator.clipboard?.writeText(generatedAssetUrls.join("\n"));
-                addLog("ASSET URL COPIED", "system");
+                copyText(generatedAssetUrls.join("\n"), "ASSET URL COPIED");
             }
             function clearResultActions() {
                 document.getElementById('source-actions').classList.remove('active');
