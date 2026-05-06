@@ -18,8 +18,10 @@ The operational automation workflow is:
 2. Press **URL MONITOR**.
 3. OmniLab checks the target for availability, latency, title, and content changes.
 4. It automatically generates a baseline research report, then generates another report when the URL changes or has availability problems.
-5. The monitor reports are saved in **ARTIFACTS** with their screenshot and source links.
-6. Press **STOP WATCH** or **SHUTDOWN SYSTEM** to stop monitoring.
+5. A visible workflow status appears while the monitor report is being researched.
+6. Change reports are rate-limited so dynamic pages do not keep opening new reports every polling cycle.
+7. The monitor reports are saved in **ARTIFACTS** with their screenshot and source links.
+8. Press **STOP WATCH** or **SHUTDOWN SYSTEM** to stop monitoring.
 
 ## What It Is Useful For
 
@@ -186,6 +188,7 @@ PERPLEXITY_TOKEN_FILE=/home/ubuntu/.config/perplexity-web-mcp/token
 PERPLEXITY_SESSION_TURNS=4
 WATCH_INTERVAL_SECONDS=45
 WATCH_TIMEOUT_SECONDS=12
+WATCH_RESEARCH_COOLDOWN_SECONDS=900
 SEARCH_PROXY_FILE=/home/ubuntu/webshare_proxies.txt
 ```
 

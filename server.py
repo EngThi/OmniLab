@@ -41,6 +41,7 @@ PERPLEXITY_TOKEN_FILE = os.path.expanduser(os.getenv("PERPLEXITY_TOKEN_FILE", "~
 PERPLEXITY_SESSION_TURNS = int(os.getenv("PERPLEXITY_SESSION_TURNS", "4"))
 WATCH_INTERVAL_SECONDS = int(os.getenv("WATCH_INTERVAL_SECONDS", "45"))
 WATCH_TIMEOUT_SECONDS = int(os.getenv("WATCH_TIMEOUT_SECONDS", "12"))
+WATCH_RESEARCH_COOLDOWN_SECONDS = int(os.getenv("WATCH_RESEARCH_COOLDOWN_SECONDS", "900"))
 COOKIE_FILE_CANDIDATES = [
     COOKIE_FILE,
     os.path.expanduser("~/arq.json"),
@@ -155,6 +156,7 @@ async def watch_target_loop(ws: WebSocket, target: str):
     previous = None
     baseline_reported = False
     last_researched_signature = None
+    last_research_at = 0
     await send_ws_json(ws, {"type": "watch_update", "status": "started", "target": target, "message": f"WATCHING {target}"})
     while True:
         try:
@@ -180,7 +182,17 @@ async def watch_target_loop(ws: WebSocket, target: str):
 
             signature = f"{reason}:{current.get('status_code')}:{current.get('content_hash')}:{current.get('title')}"
             if should_research and signature != last_researched_signature:
+                now = time.time()
+                if baseline_reported and reason != "baseline" and now - last_research_at < WATCH_RESEARCH_COOLDOWN_SECONDS:
+                    await send_ws_json(ws, {
+                        "type": "status_update",
+                        "message": f"WORKFLOW: CHANGE_DETECTED_REPORT_COOLDOWN {WATCH_RESEARCH_COOLDOWN_SECONDS}s",
+                    })
+                    previous = current
+                    await asyncio.sleep(WATCH_INTERVAL_SECONDS)
+                    continue
                 last_researched_signature = signature
+                last_research_at = now
                 workflow_query = (
                     f"URL monitor workflow report for {target}. "
                     f"Current status: HTTP {current.get('status_code')} in {current.get('elapsed_ms')}ms. "

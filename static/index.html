@@ -103,6 +103,11 @@
             .artifact-meta { color:rgba(255,255,255,0.52); font-size:0.62em; line-height:1.4; text-transform:none; margin-bottom:8px; }
             .artifact-links { display:flex; flex-wrap:wrap; gap:6px; }
             .artifact-empty { padding:22px; color:rgba(255,255,255,0.58); font-size:0.72em; text-align:center; }
+            #workflow-status { position:absolute; left:50%; top:18%; transform:translateX(-50%); min-width:360px; display:none; pointer-events:none; z-index:2800; padding:14px 18px; background:rgba(0,8,14,0.94); border:1px solid rgba(0,255,170,0.35); border-left:4px solid var(--accent-color); color:#fff; box-shadow:0 0 50px rgba(0,0,0,0.7); }
+            #workflow-status.active { display:flex; align-items:center; gap:12px; }
+            .workflow-spinner { width:18px; height:18px; border:2px solid rgba(0,242,255,0.22); border-top-color:var(--accent-color); border-radius:50%; animation:spin 0.8s linear infinite; }
+            .workflow-copy { font-family:'Syncopate'; font-size:0.62em; letter-spacing:2px; line-height:1.5; }
+            @keyframes spin { to { transform:rotate(360deg); } }
         </style>
     </head>
     <body>
@@ -172,6 +177,10 @@
                     </div>
                 </div>
                 <div id="artifacts-list"><div class="artifact-empty">No saved artifacts yet.</div></div>
+            </div>
+            <div id="workflow-status">
+                <div class="workflow-spinner"></div>
+                <div class="workflow-copy" id="workflow-status-text">RUNNING WORKFLOW</div>
             </div>
             <div id="browser-view">
                 <div id="browser-header">
@@ -722,12 +731,14 @@
             function stopWatch() {
                 if (ws?.readyState === 1) {
                     ws.send(JSON.stringify({ type: "command", command: "stop_watch" }));
+                    hideWorkflowStatus();
                 } else {
                     addLog("WEBSOCKET OFFLINE", "warn");
                 }
             }
 
             function startWatchArtifact(data) {
+                showWorkflowStatus(`URL MONITOR: ${String(data.reason || "REPORT").toUpperCase()} RESEARCH RUNNING`);
                 currentArtifact = {
                     id: `${Date.now()}-${crypto.randomUUID().slice(0, 8)}`,
                     createdAt: Date.now(),
@@ -745,16 +756,27 @@
                 addLog(`URL MONITOR WORKFLOW: ${String(data.reason || "REPORT").toUpperCase()} RESEARCH`, "prompt");
             }
 
+            function showWorkflowStatus(text) {
+                document.getElementById('workflow-status-text').innerText = text;
+                document.getElementById('workflow-status').classList.add('active');
+            }
+
+            function hideWorkflowStatus() {
+                document.getElementById('workflow-status').classList.remove('active');
+            }
+
             function handleWatchUpdate(data) {
                 if (data.status === "started") {
                     addLog(data.message || "WATCHTOWER STARTED", "system");
                     return;
                 }
                 if (data.status === "stopped") {
+                    hideWorkflowStatus();
                     addLog(data.message || "WATCHTOWER STOPPED", "warn");
                     return;
                 }
                 if (data.status === "error") {
+                    hideWorkflowStatus();
                     addLog(`WATCH ERROR: ${(data.message || "UNKNOWN").toUpperCase()}`, "warn");
                     return;
                 }
@@ -767,6 +789,7 @@
 
             function hideBrowser() { document.getElementById('browser-view').style.display = 'none'; }
             function showBrowser(base64Data) {
+                hideWorkflowStatus();
                 addLog("FEED ONLINE", "system");
                 document.getElementById('browser-content').src = `data:image/jpeg;base64,${base64Data}`;
                 document.getElementById('browser-view').style.display = 'flex';
