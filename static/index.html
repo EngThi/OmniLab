@@ -107,6 +107,11 @@
             #workflow-status.active { display:flex; align-items:center; gap:12px; }
             .workflow-spinner { width:18px; height:18px; border:2px solid rgba(0,242,255,0.22); border-top-color:var(--accent-color); border-radius:50%; animation:spin 0.8s linear infinite; }
             .workflow-copy { font-family:'Syncopate'; font-size:0.62em; letter-spacing:2px; line-height:1.5; }
+            #copy-panel { position:absolute; left:50%; bottom:48px; transform:translateX(-50%); width:min(680px, calc(100vw - 80px)); display:none; pointer-events:auto; z-index:5200; background:rgba(0,8,14,0.98); border:1px solid rgba(0,242,255,0.36); border-left:4px solid var(--accent-color); box-shadow:0 0 70px rgba(0,0,0,0.85); padding:12px; }
+            #copy-panel.active { display:block; }
+            #copy-panel-head { display:flex; justify-content:space-between; align-items:center; gap:10px; color:#fff; font-family:'Syncopate'; font-size:0.62em; letter-spacing:2px; margin-bottom:10px; }
+            #copy-panel textarea { width:100%; min-height:110px; resize:vertical; background:#020609; color:#fff; border:1px solid rgba(0,255,170,0.28); padding:10px; font-family:'Space Mono', monospace; font-size:0.78em; text-transform:none; letter-spacing:0; cursor:text; }
+            #copy-panel button { border:1px solid rgba(0,242,255,0.28); background:rgba(0,242,255,0.08); color:var(--text-color); padding:7px 10px; font-family:'Syncopate'; font-size:0.58em; letter-spacing:1px; cursor:pointer !important; }
             @keyframes spin { to { transform:rotate(360deg); } }
         </style>
     </head>
@@ -181,6 +186,16 @@
             <div id="workflow-status">
                 <div class="workflow-spinner"></div>
                 <div class="workflow-copy" id="workflow-status-text">RUNNING WORKFLOW</div>
+            </div>
+            <div id="copy-panel">
+                <div id="copy-panel-head">
+                    <span id="copy-panel-title">COPY DATA</span>
+                    <div>
+                        <button onclick="selectCopyPanel()">SELECT</button>
+                        <button onclick="hideCopyPanel()">CLOSE</button>
+                    </div>
+                </div>
+                <textarea id="copy-panel-text" spellcheck="false"></textarea>
             </div>
             <div id="browser-view">
                 <div id="browser-header">
@@ -813,7 +828,7 @@
                     const label = source.title || source.url.replace(/^https?:\/\/(www\.)?/, '').split('/')[0];
                     return `<a class="source-link" href="${escapeHtml(source.url)}" target="_blank" rel="noopener noreferrer" title="${escapeHtml(source.url)}" onclick="openSource(event, ${idx})">OPEN ${idx + 1}: ${escapeHtml(label)}</a>`;
                 }).join("");
-                panel.innerHTML = `<span class="source-label">SOURCE LINKS</span>${links}<button class="source-copy" onclick="copySources()">COPY SOURCES</button>`;
+                panel.innerHTML = `<span class="source-label">SOURCE LINKS</span>${links}<button type="button" class="source-copy" onclick="copySources(event)">COPY SOURCES</button>`;
                 panel.classList.add('active');
                 if (currentArtifact) {
                     currentArtifact.sources = cleanSources;
@@ -824,12 +839,35 @@
             function escapeHtml(value) {
                 return String(value).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
             }
-            async function copyText(value, successMessage) {
+            function showCopyPanel(title, text) {
+                const panel = document.getElementById('copy-panel');
+                const area = document.getElementById('copy-panel-text');
+                document.getElementById('copy-panel-title').innerText = title;
+                area.value = text;
+                panel.classList.add('active');
+                setTimeout(() => {
+                    area.focus();
+                    area.select();
+                }, 0);
+            }
+
+            function hideCopyPanel() {
+                document.getElementById('copy-panel').classList.remove('active');
+            }
+
+            function selectCopyPanel() {
+                const area = document.getElementById('copy-panel-text');
+                area.focus();
+                area.select();
+            }
+
+            async function copyText(value, successMessage, title = "COPY DATA") {
                 const text = String(value || "");
                 if (!text) {
                     addLog("NOTHING TO COPY", "warn");
                     return false;
                 }
+                showCopyPanel(title, text);
                 try {
                     if (navigator.clipboard?.writeText && window.isSecureContext) {
                         await navigator.clipboard.writeText(text);
@@ -848,13 +886,14 @@
                     addLog(successMessage, "system");
                     return true;
                 } catch (err) {
-                    window.prompt("Copy this text:", text);
-                    addLog("COPY FALLBACK OPENED", "warn");
+                    addLog("COPY PANEL OPENED: SELECTED TEXT MANUALLY", "warn");
                     return false;
                 }
             }
-            function copySources() {
-                copyText(visibleSourceUrls.join("\n"), "SOURCES COPIED");
+            function copySources(event) {
+                event?.preventDefault();
+                event?.stopPropagation();
+                copyText(visibleSourceUrls.join("\n"), "SOURCES COPIED", "SOURCE URLS");
             }
             function openSource(event, index) {
                 event.preventDefault();
@@ -863,7 +902,7 @@
                 addLog(`OPENING SOURCE ${index + 1}`, "system");
                 const opened = window.open(url, "_blank");
                 if (!opened) {
-                    copyText(url, "SOURCE URL COPIED");
+                    copyText(url, "SOURCE URL COPIED", "SOURCE URL");
                     window.location.href = url;
                 } else {
                     opened.opener = null;
@@ -886,7 +925,7 @@
                         <span>OPEN GENERATED IMAGE ${idx + 1}</span>
                     </a>
                 `).join("");
-                panel.innerHTML = `${links}<button class="source-copy" onclick="copyGeneratedAssets()">COPY ASSET URL</button>`;
+                panel.innerHTML = `${links}<button type="button" class="source-copy" onclick="copyGeneratedAssets(event)">COPY ASSET URL</button>`;
                 panel.classList.add('active');
                 if (currentArtifact) {
                     currentArtifact.assets = urls;
@@ -894,8 +933,10 @@
                 }
                 addLog(`GENERATED ASSET READY: ${urls.length} URL`, "system");
             }
-            function copyGeneratedAssets() {
-                copyText(generatedAssetUrls.join("\n"), "ASSET URL COPIED");
+            function copyGeneratedAssets(event) {
+                event?.preventDefault();
+                event?.stopPropagation();
+                copyText(generatedAssetUrls.join("\n"), "ASSET URL COPIED", "GENERATED ASSET URLS");
             }
             function clearResultActions() {
                 document.getElementById('source-actions').classList.remove('active');
